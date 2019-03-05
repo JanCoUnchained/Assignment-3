@@ -1,0 +1,58 @@
+---
+title: "bayes_ASD"
+author: "Victor Møller"
+date: "5 mar 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+library(pacman)
+p_load(rethinking, tidyverse)
+d <- read.csv("Assignment3Data.csv")
+
+```
+
+
+```{r cars}
+
+#filtering visit 1 & neurotypicals 
+d1 <- d %>%
+  filter(Visit == 1) %>%
+  filter(ASD == 1)
+
+#model 
+glimmer(NonVerbalIQ ~ ADOS, data=d1 )
+
+m1 <- rethinking::map(
+alist(
+NonVerbalIQ ~ dnorm(mu, sigma),
+mu <- Intercept + b_ADOS*ADOS,
+Intercept ~ dnorm(0, 10),
+b_ADOS ~ dnorm(0, ),
+sigma ~ dnorm(0, 5)
+  ),
+data = d1)
+
+#predictive prior check. 
+mu <- rnorm(10000, 0, 15)
+sigma <- abs(rnorm(10000, 0, 5)) #mu with rnorm. 
+sigma <- abs(rcauchy(10000, 0, 2)) #mu with cauchy. 
+y <- rnorm(10000, mu, sigma)
+dens(y) 
+
+#standardizing IQ & ADOS.
+d1$centeredNonVerbalIQ <- d1$NonVerbalIQ - mean(d1$NonVerbalIQ)
+
+
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
