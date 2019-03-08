@@ -30,12 +30,12 @@ d1 <- d %>%
 
 colname <- c("VerbalIQ", "NonVerbalIQ", "SocialIQ")
 
-mutate_func <- function(var) {
+z_score <- function(var) {
   return( (var - mean(var) ) / sd(var) )
 }
 
 d2 <- d1 %>%
-  mutate_at(vars(colname), mutate_func)
+  mutate_at(vars(colname), z_score)
 
 
 d2$ADOS <- d2$ADOS - mean(d2$ADOS)
