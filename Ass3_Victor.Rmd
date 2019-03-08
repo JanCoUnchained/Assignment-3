@@ -23,15 +23,17 @@ d1 <- d %>%
 
 
 #Centering (JanCo style)
-colname <- c("VerbalIQ", "NonVerbalIQ", "SocialIQ", "ADOS")
+
+colname <- c("VerbalIQ", "NonVerbalIQ", "SocialIQ")
 
 mutate_func <- function(var) {
-  return(var - mean(var))
+  return( (var - mean(var) ) / sd(var) )
 }
 
 d2 <- d1 %>%
   mutate_at(vars(colname), mutate_func)
 
+d2$ADOS <- d2$ADOS - mean(d2$ADOS)
 ```
 
 Predictive prior checks. 
@@ -53,7 +55,7 @@ get_prior(m1, d2, family = gaussian)
 #prior predictive check - Riccardo style 
 prior = c(prior(normal(0, 10), class = "Intercept"), prior(normal(0.5, 2), class = "b"), prior(normal(0,10), class = "sigma"))
 
-m0_prior <- brm(m1, family = gaussian, d2, prior = prior, sample_prior = "only", chain = 1, iter = 500)
+m0_prior <- brm(m1, family = gaussian, d2, prior = prior, sample_prior = "only", chain = 1, iter = 500)  
 
 pp_check(m0_prior) #looks but quite variable & outside of the real dist. 
 
