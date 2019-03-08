@@ -47,8 +47,8 @@ d2$ADOS <- d2$ADOS - mean(d2$ADOS)
 
 Manual
 ```{r}
-mu <- rnorm(10000, 0, 15)
-sigma <- abs(rnorm(10000, 0, 5)) #mu with rnorm. 
+mu <- rnorm(10000, 0, 1)
+sigma <- abs(rnorm(10000, 0, 10)) #mu with rnorm. 
 y <- rnorm(10000, mu, sigma)
 dens(y) 
 ```
@@ -62,23 +62,24 @@ get_prior(m1, d2, family = gaussian)
 
 
 #prior predictive check - Riccardo style 
-prior = c(prior(normal(0, 10), class = "Intercept"), 
-          prior(normal(0.5, 2), class = "b"), prior(normal(0,10), class = "sigma"))
-
-
-m0_prior <- brm(m1, family = gaussian, d2, prior = prior, sample_prior = "only", chain = 1, iter = 500)  
+prior = c(prior(normal(0, 1), class = "Intercept"), 
+          prior(normal(-.15, 0.05), class = "b"), prior(normal(0, 4), class = "sigma"))
 
 
 # fitting a model with "only"
 m1_only <- brm(m1, family = gaussian, d2, prior = prior, sample_prior = "only", chain = 1, iter = 500)
 
-pp_check(m1_only) #looks but quite variable & outside of the real dist. 
+pp_check(m1_only) + xlim(-4, 4 ) #looks but quite variable & outside of the real dist. 
 
 
 # fitting a model with "TRUE"
 m1_true <- brm(m1, family = gaussian, d2, prior = prior, sample_prior = TRUE, chain = 1, iter = 500)
 
 pp_check(m1_true) #not too bad. 
+
+lm(SocialIQ ~ ADOS, data = d2)
+lm(NonVerbalIQ ~ ADOS, data = d2)
+lm(VerbalIQ ~ ADOS, data = d2)
 
 ```
 
@@ -95,9 +96,9 @@ m1 <- rethinking::map(
   alist(
     NonVerbalIQ ~ dnorm(mu, sigma),
     mu <- Intercept + b_ADOS*ADOS,
-    Intercept ~ dnorm(0, 10),
-    b_ADOS ~ dnorm(.5, 2),
-    sigma ~ dnorm(0, 10)
+    Intercept ~ dnorm(0, 1),
+    b_ADOS ~ dnorm(-0.15, 0.05),
+    sigma ~ dnorm(0, 4)
     ),
   data = d2)
 
@@ -106,6 +107,8 @@ precis(m1) #for every b_ADOS --> -.66 IQ
 
 
 summary(d2$ADOS)
+
+
 ADOS.seq <- seq( from=-14 , to=8 , by=1 )
 sim.ADOS <- sim(m1, data = list(ADOS = ADOS.seq))
 IQ.PI <- apply( sim.ADOS , 2 , PI , prob=0.89)
