@@ -63,20 +63,27 @@ get_prior(m1, d2, family = gaussian)
 
 #prior predictive check - Riccardo style 
 prior = c(prior(normal(0, 10), class = "Intercept"), 
-          prior(normal(0.5, 2), class = "b"), prior(normal(0,10), class = "sigma"))
+          prior(normal(-0.15, 2), class = "b"), 
+          prior(normal(0,10), class = "sigma"))
 
 
-m0_prior <- brm(m1, family = gaussian, d2, prior = prior, sample_prior = "only", chain = 1, iter = 500)  
+m0_prior <- brm(m1, family = gaussian, d2, 
+                prior = prior, sample_prior = "only", 
+                chain = 1, iter = 500)  
 
 
 # fitting a model with "only"
-m1_only <- brm(m1, family = gaussian, d2, prior = prior, sample_prior = "only", chain = 1, iter = 500)
+m1_only <- brm(m1, family = gaussian, d2, 
+               prior = prior, sample_prior = "only", 
+               chain = 1, iter = 500)
 
 pp_check(m1_only) #looks but quite variable & outside of the real dist. 
 
 
 # fitting a model with "TRUE"
-m1_true <- brm(m1, family = gaussian, d2, prior = prior, sample_prior = TRUE, chain = 1, iter = 500)
+m1_true <- brm(m1, family = gaussian, d2, 
+               prior = prior, sample_prior = TRUE, 
+               chain = 1, iter = 500)
 
 pp_check(m1_true) #not too bad. 
 
