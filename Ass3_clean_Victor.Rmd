@@ -36,11 +36,9 @@ mutate_func <- function(var) {
 
 d2 <- d1 %>%
   mutate_at(vars(colname), mutate_func)
-<<<<<<< HEAD
-=======
+
 
 d2$ADOS <- d2$ADOS - mean(d2$ADOS)
->>>>>>> e054df8587f5b552981ddf14a57ecde3cbfd6b52
 ```
 
 
@@ -67,10 +65,8 @@ get_prior(m1, d2, family = gaussian)
 prior = c(prior(normal(0, 10), class = "Intercept"), 
           prior(normal(0.5, 2), class = "b"), prior(normal(0,10), class = "sigma"))
 
-<<<<<<< HEAD
-=======
+
 m0_prior <- brm(m1, family = gaussian, d2, prior = prior, sample_prior = "only", chain = 1, iter = 500)  
->>>>>>> e054df8587f5b552981ddf14a57ecde3cbfd6b52
 
 
 # fitting a model with "only"
