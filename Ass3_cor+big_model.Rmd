@@ -1,0 +1,228 @@
+---
+title: "bayes_ASD"
+author: "Victor Møller"
+date: "5 mar 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+library(pacman)
+p_load(rethinking, tidyverse, brms, ggunchained)
+
+# data loading
+d <- read.csv("Assignment3Data.csv")
+dcheck <- d %>% 
+    filter(Visit == 1)
+```
+
+
+#A: 
+#preprocessing, scaling
+
+```{r }
+#Filtering visit 1 & neurotypicals 
+d1 <- d %>%
+  filter(Visit == 1) %>%
+  filter(ASD == 1)
+
+
+#Centering (JanCo style)
+
+colname <- c("VerbalIQ", "NonVerbalIQ", "SocialIQ")
+
+z_score <- function(var) {
+  return( (var - mean(var) ) / sd(var) )
+}
+
+d2 <- d1 %>%
+  mutate_at(vars(colname), z_score)
+
+
+d2$ADOS <- d2$ADOS / sd(d2$ADOS)
+```
+
+
+#B:
+#Predictive prior checks
+
+Manual
+```{r}
+mu <- rnorm(10000, 0, 1)
+sigma <- abs(rnorm(10000, 0, 10)) #mu with rnorm. 
+y <- rnorm(10000, mu, sigma)
+dens(y) 
+```
+
+
+BRMS
+```{r}
+# making a formula, automatic prior detection
+m1 <- bf(NonVerbalIQ ~ 1 + ADOS)
+get_prior(m1, d2, family = gaussian) 
+
+
+#prior predictive check - Riccardo style 
+<<<<<<< HEAD
+prior = c(prior(normal(0, 1), class = "Intercept"), 
+          prior(normal(-.15, 0.05), class = "b"), prior(normal(0, 4), class = "sigma"))
+=======
+prior = c(prior(normal(0, 10), class = "Intercept"), 
+          prior(normal(-0.15, 2), class = "b"), 
+          prior(normal(0,10), class = "sigma"))
+
+
+m0_prior <- brm(m1, family = gaussian, d2, 
+                prior = prior, sample_prior = "only", 
+                chain = 1, iter = 500)  
+>>>>>>> 55232b566150743046fcd49548fec93ce0714f01
+
+
+# fitting a model with "only"
+m1_only <- brm(m1, family = gaussian, d2, 
+               prior = prior, sample_prior = "only", 
+               chain = 1, iter = 500)
+
+pp_check(m1_only) + xlim(-4, 4 ) #looks but quite variable & outside of the real dist. 
+
+
+# fitting a model with "TRUE"
+m1_true <- brm(m1, family = gaussian, d2, 
+               prior = prior, sample_prior = TRUE, 
+               chain = 1, iter = 500)
+
+pp_check(m1_true) #not too bad. 
+
+lm(SocialIQ ~ ADOS, data = d2)
+lm(NonVerbalIQ ~ ADOS, data = d2)
+lm(VerbalIQ ~ ADOS, data = d2)
+
+```
+
+
+#C:
+#Modelling by the book
+
+```{r}
+#making model (getting help from glimmer)
+glimmer(NonVerbalIQ ~ 1 + ADOS, d2)
+
+#model 1
+m1 <- rethinking::map(
+  alist(
+    NonVerbalIQ ~ dnorm(mu, sigma),
+    mu <- Intercept + b_ADOS*ADOS,
+    Intercept ~ dnorm(0, 1),
+    b_ADOS ~ dnorm(-0.15, 0.05),
+    sigma ~ dnorm(0, 4)
+    ),
+  data = d2)
+
+
+precis(m1) #for every b_ADOS --> -.66 IQ 
+
+
+summary(d2$ADOS)
+
+
+ADOS.seq <- seq( from=-14 , to=8 , by=1 )
+sim.ADOS <- sim(m1, data = list(ADOS = ADOS.seq))
+IQ.PI <- apply( sim.ADOS , 2 , PI , prob=0.89)
+
+mu <- link(m1)
+mu <- link( m1 , data=data.frame(ADOS=ADOS.seq) )
+mu.mean <- apply( mu , 2 , mean )
+mu.HPDI <- apply( mu , 2 , HPDI , prob=0.89 )
+
+plot(NonVerbalIQ ~ ADOS , d2 , col=col.alpha(rangi2,1))
+lines(ADOS.seq , mu.mean) #issue here. 
+# draw HPDI region for line
+shade( mu.HPDI , ADOS.seq )
+# draw PI region for simulated heights
+shade( IQ.PI , ADOS.seq ) 
+
+```
+
+```{r}
+curve( dunif( x , 0 , 50 ) , from=-10 , to=60 )
+curve( dcauchy( x , 0 , 2 ) , from=-10 , to=10 )
+glimmer( NonVerbalIQ ~ ADOS , data=d2 )
+```
+
+```{r}
+#Filtering visit 1 & neurotypicals 
+d3 <- d %>%
+  filter(Visit == 1) %>%
+  filter(ASD == 0)
+#Centering (JanCo style, using z-score)
+colname <- c("VerbalIQ", "NonVerbalIQ", "SocialIQ")
+d4 <- d3[complete.cases(d3[6:7]) , ]
+d4 <- d4 %>%
+  mutate_at(vars(colname), z_score)
+d4$ADOS <- d4$ADOS - mean(d4$ADOS)
+
+d2cor <- d2[6:8]
+cor(d2cor)
+
+d4cor <- d4[6:8]
+cor(d4cor)
+
+lm(SocialIQ ~ ADOS, data = d2)
+lm(NonVerbalIQ ~ ADOS, data = d2)
+lm(VerbalIQ ~ ADOS, data = d2)
+
+lm(ADOS ~ SocialIQ, data = d2)
+lm(ADOS ~ NonVerbalIQ, data = d2)
+lm(ADOS ~ VerbalIQ, data = d2)
+
+
+
+lm(SocialIQ ~ ADOS, data = d4)
+lm(NonVerbalIQ ~ ADOS, data = d4)
+lm(VerbalIQ ~ ADOS, data = d4)
+```
+
+```{r}
+m1 <- bf(ADOS ~ 1 + NonVerbalIQ)
+get_prior(ADOS ~ 1 + NonVerbalIQ + VerbalIQ + SocialIQ, d2)
+mean(d2$ADOS)
+
+mNonV <- rethinking::map(
+alist(
+ADOS ~ dnorm(mu, sigma),
+mu <- Intercept + b_NonVIQ*NonVerbalIQ,
+Intercept ~ dnorm(3, 1),
+b_NonVIQ ~ dnorm(-0.5, 0.5),
+sigma ~ dnorm(1, 0.5)
+),
+data = d2)
+
+mV <- rethinking::map(
+alist(
+ADOS ~ dnorm(mu, sigma),
+mu <- Intercept + b_NonVIQ*NonVerbalIQ,
+Intercept ~ dnorm(3, 1),
+b_NonVIQ ~ dnorm(-0.5, 0.5),
+sigma ~ dnorm(1, 0.5)
+),
+data = d2)
+
+
+
+m1 <- rethinking::map(
+alist(
+ADOS ~ dnorm(mu, sigma),
+mu <- Intercept + b_NonVIQ*NonVerbalIQ + b_VIQ * VerbalIQ + b_SIQ * SocialIQ,
+Intercept ~ dnorm(3, 1),
+b_NonVIQ ~ dnorm(-0.5, 0.5),
+b_VIQ ~ dnorm(-0.5, 0.5), 
+b_SIQ ~ dnorm(-0.5, 0.5),
+sigma ~ dnorm(1, 0.5)
+),
+data = d2)
+
+precis(m1, cor = TRUE)
+
+```
+
+
