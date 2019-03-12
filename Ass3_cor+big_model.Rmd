@@ -12,19 +12,20 @@ p_load(rethinking, tidyverse, brms, ggunchained)
 
 # data loading
 d <- read.csv("Assignment3Data.csv")
-dcheck <- d %>% 
-    filter(Visit == 1)
 ```
 
 
-#A: 
 #preprocessing, scaling
 
 ```{r }
 #Filtering visit 1 & neurotypicals 
-d1 <- d %>%
+d_asd1 <- d %>%
   filter(Visit == 1) %>%
   filter(ASD == 1)
+
+d_all1 <- d %>%
+  filter(Visit == 1) %>%
+  filter(!is.na(NonVerbalIQ))
 
 
 #Centering (JanCo style)
@@ -35,15 +36,18 @@ z_score <- function(var) {
   return( (var - mean(var) ) / sd(var) )
 }
 
-d2 <- d1 %>%
-  mutate_at(vars(colname), z_score)
+d2 <- d_asd1 %>%
+  mutate_at(vars(colname), z_score) %>%
+  mutate(ADOS = ADOS / sd(ADOS))
 
 
-d2$ADOS <- d2$ADOS / sd(d2$ADOS)
+d3 <- d_all1 %>%
+  mutate_at(vars(colname), z_score) %>%
+  mutate(ADOS = ADOS / sd(ADOS))
 ```
 
 
-#B:
+#priors
 #Predictive prior checks
 
 Manual
@@ -62,11 +66,10 @@ m1 <- bf(NonVerbalIQ ~ 1 + ADOS)
 get_prior(m1, d2, family = gaussian) 
 
 
-#prior predictive check - Riccardo style 
-<<<<<<< HEAD
+#prior predictive check - Riccardo style
 prior = c(prior(normal(0, 1), class = "Intercept"), 
           prior(normal(-.15, 0.05), class = "b"), prior(normal(0, 4), class = "sigma"))
-=======
+
 prior = c(prior(normal(0, 10), class = "Intercept"), 
           prior(normal(-0.15, 2), class = "b"), 
           prior(normal(0,10), class = "sigma"))
@@ -75,7 +78,6 @@ prior = c(prior(normal(0, 10), class = "Intercept"),
 m0_prior <- brm(m1, family = gaussian, d2, 
                 prior = prior, sample_prior = "only", 
                 chain = 1, iter = 500)  
->>>>>>> 55232b566150743046fcd49548fec93ce0714f01
 
 
 # fitting a model with "only"
@@ -100,7 +102,7 @@ lm(VerbalIQ ~ ADOS, data = d2)
 ```
 
 
-#C:
+#Q1:
 #Modelling by the book
 
 ```{r}
@@ -149,6 +151,7 @@ curve( dcauchy( x , 0 , 2 ) , from=-10 , to=10 )
 glimmer( NonVerbalIQ ~ ADOS , data=d2 )
 ```
 
+some stupid ass stuff
 ```{r}
 #Filtering visit 1 & neurotypicals 
 d3 <- d %>%
@@ -182,11 +185,9 @@ lm(NonVerbalIQ ~ ADOS, data = d4)
 lm(VerbalIQ ~ ADOS, data = d4)
 ```
 
+# Q2
 ```{r}
-m1 <- bf(ADOS ~ 1 + NonVerbalIQ)
-get_prior(ADOS ~ 1 + NonVerbalIQ + VerbalIQ + SocialIQ, d2)
-mean(d2$ADOS)
-
+# INDIVIDUAL MODELS
 mNonV <- rethinking::map(
 alist(
 ADOS ~ dnorm(mu, sigma),
@@ -208,21 +209,63 @@ sigma ~ dnorm(1, 0.5)
 data = d2)
 
 
+# MODEL WITH ALL 3 MEASURES
+Q2_m <- rethinking::map(
+  alist(
+    ADOS ~ dnorm(mu, sigma),
+    mu <- Intercept + b_NonVIQ*NonVerbalIQ + b_VIQ * VerbalIQ + b_SIQ * SocialIQ,
+    Intercept ~ dnorm(3, 1),
+    b_NonVIQ ~ dnorm(-0.5, 0.5),
+    b_VIQ ~ dnorm(-0.5, 0.5), 
+    b_SIQ ~ dnorm(-0.5, 0.5),
+    sigma ~ dnorm(1, 0.5)
+    ), 
+  data = d2)
 
-m1 <- rethinking::map(
-alist(
-ADOS ~ dnorm(mu, sigma),
-mu <- Intercept + b_NonVIQ*NonVerbalIQ + b_VIQ * VerbalIQ + b_SIQ * SocialIQ,
-Intercept ~ dnorm(3, 1),
-b_NonVIQ ~ dnorm(-0.5, 0.5),
-b_VIQ ~ dnorm(-0.5, 0.5), 
-b_SIQ ~ dnorm(-0.5, 0.5),
-sigma ~ dnorm(1, 0.5)
-),
-data = d2)
+precis(Q2_m, cor = TRUE)
 
-precis(m1, cor = TRUE)
+
+# MODEL WITHOUT VERBAL IQ
+Q2_noviq <- rethinking::map(
+  alist(
+    ADOS ~ dnorm(mu, sigma),
+    mu <- Intercept + b_NonVIQ*NonVerbalIQ + b_SIQ * SocialIQ,
+    Intercept ~ dnorm(3, 1),
+    b_NonVIQ ~ dnorm(-0.5, 0.5),
+    b_SIQ ~ dnorm(-0.5, 0.5),
+    sigma ~ dnorm(1, 0.5)
+    ), 
+  data = d2)
+
+precis(Q2_noviq, cor = TRUE)
 
 ```
 
+
+# Q2 ideal model
+```{r}
+#rethinking::WAIC(m1, n = 1e4)
+#rethinking::WAIC(m1_noviq, n = 1e4)
+
+compare(Q2_m, Q2_noviq, n = 1e4)
+```
+
+
+
+# Q3
+```{r}
+set.seed(1337)
+m3 <- rethinking::map(
+alist(
+  ADOS ~ dnorm(mu, sigma),
+  mu <- Intercept + b_NonVIQ*NonVerbalIQ + b_VIQ*VerbalIQ + b_SIQ*SocialIQ,
+  Intercept ~ dnorm(3, 1),
+  b_NonVIQ ~ dnorm(-0.5, 0.5),
+  b_VIQ ~ dnorm(-0.5, 0.5),
+  b_SIQ ~ dnorm(-0.5, 0.5),
+  sigma ~ dnorm(1, 0.5)
+  ), data = d3)
+
+precis(m3, cor = TRUE)
+```
 
