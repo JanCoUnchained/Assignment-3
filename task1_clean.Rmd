@@ -1,0 +1,241 @@
+---
+title: "bayes_ASD"
+author: "Victor Møller"
+date: "5 mar 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+library(pacman)
+p_load(rethinking, tidyverse, brms, ggunchained)
+
+# data loading
+d <- read.csv("Assignment3Data.csv")
+
+```
+
+
+#A: 
+#preprocessing, scaling
+
+```{r }
+#Filtering visit 1 & neurotypicals 
+d1 <- d %>%
+  filter(Visit == 1) %>%
+  filter(ASD == 1)
+
+
+#centering (JanCo style)
+colname <- c("VerbalIQ", "NonVerbalIQ", "SocialIQ")
+
+z_score <- function(var) {
+  return( (var - mean(var) ) / sd(var) )
+}
+
+d2 <- d1 %>%
+  mutate_at(vars(colname), z_score)
+
+#standardizing 
+d2$ADOS <- d2$ADOS / sd(d2$ADOS)
+
+```
+
+
+#B
+
+BRMS
+```{r}
+# making a formula, automatic prior detection
+m1 <- bf(ADOS ~ 1 + NonVerbalIQ)
+get_prior(m1, d2, family = gaussian) #outrageusly high it seems?
+
+m2 <- bf(ADOS ~ 1 + VerbalIQ)
+get_prior(m2, d2, family = gaussian) #outrageously high. 
+
+m3 <- bf(ADOS ~ 1 + SocialIQ)
+get_prior(m3, d2, family = gaussian) #outrageously high. 
+
+
+#prior predictive check - Riccardo style 
+prior = c(prior(normal(3, 1), class = "Intercept"), 
+          prior(normal(-0.5, 0.5), class = "b"), 
+          prior(normal(1,0.5), class = "sigma"))
+
+
+#model with = "only"
+m1_only <- brm(m1, family = gaussian, d2, 
+                prior = prior, sample_prior = "only", 
+                chain = 1, iter = 500)  
+
+m2_only <- brm(m2, family = gaussian, d2, 
+                prior = prior, sample_prior = "only", 
+                chain = 1, iter = 500)
+
+m3_only <- brm(m3, family = gaussian, d2, 
+                prior = prior, sample_prior = "only", 
+                chain = 1, iter = 500)
+
+#plots prior? 
+plot(m1_only)
+plot(m2_only)
+plot(m3_only)
+
+#model with = TRUE
+m1_true <- brm(m1, family = gaussian, d2, 
+               prior = prior, sample_prior = TRUE, #posterior?
+               chain = 1, iter = 500)
+
+m2_true <- brm(m2, family = gaussian, d2, 
+               prior = prior, sample_prior = TRUE, 
+               chain = 1, iter = 500)
+
+m3_true <- brm(m3, family = gaussian, d2, 
+               prior = prior, sample_prior = TRUE, 
+               chain = 1, iter = 500)
+
+#plots posterior?
+plot(m1_true)
+plot(m2_true)
+plot(m3_true)
+
+#pp_check
+pp_check(m1_only) #looks ok. 
+pp_check(m2_only) #looks ok. 
+pp_check(m3_only) #looks ok. 
+pp_check(m1_true) #looks good. 
+pp_check(m2_true) #somewhat shifted?
+pp_check(m3_true) #looks good. 
+
+```
+
+#C:
+#Doing the 3 models 
+
+```{r}
+library(rethinking)
+
+#making model (getting help from glimmer)
+glimmer(ADOS ~ 1 + NonVerbalIQ, d2)
+
+#model 1
+nonverbal <- rethinking::map(
+  alist(
+    ADOS ~ dnorm(mu, sigma),
+    mu <- a + b*NonVerbalIQ,
+    a ~ dnorm(3, 1), 
+    b ~ dnorm(-0.5, 0.5),
+    sigma ~ dnorm(1, 0.5)
+    ),
+  data = d2)
+
+precis(nonverbal, corr = TRUE) 
+
+#model 2
+verbal <- rethinking::map(
+  alist(
+    ADOS ~ dnorm(mu, sigma),
+    mu <- a + b*VerbalIQ,
+    a ~ dnorm(3, 1), 
+    b ~ dnorm(-0.5, 0.5),
+    sigma ~ dnorm(1, 0.5)
+    ),
+  data = d2)
+
+precis(verbal, corr = TRUE) 
+
+#model 3
+social <- rethinking::map(
+  alist(
+    ADOS ~ dnorm(mu, sigma),
+    mu <- a + b*SocialIQ,
+    a ~ dnorm(3, 1), 
+    b ~ dnorm(-0.5, 0.5),
+    sigma ~ dnorm(1, 0.5)
+    ),
+  data = d2)
+
+precis(social, corr = TRUE) 
+
+
+```
+
+results of models. 
+I.e., showing precis outputs. 
+
+```{r}
+
+plot(precis(nonverbal))
+plot(precis(verbal))
+plot(precis(social))
+
+```
+
+assessing model quality for nonverbal 
+
+```{r}
+
+summary(d2$NonVerbalIQ)
+summary(d2$ADOS)
+
+NonVerbal.seq <- seq(from = -3, to = 3, by = 1)
+sim.NonVerbal <- sim(nonverbal, data = list(NonVerbalIQ = NonVerbal.seq))
+ADOS.PI <- apply(sim.NonVerbal, 2, PI, prob = 0.89)
+mu <- link(nonverbal)
+mu <- link(nonverbal, data = data.frame(NonVerbalIQ = NonVerbal.seq))
+mu.mean <- apply(mu, 2, mean) 
+mu.HPDI <- apply(mu, 2, HPDI, prob = 0.89)
+
+plot(ADOS ~ NonVerbalIQ, d2, col = col.alpha(rangi2, 1))
+lines(NonVerbal.seq, mu.mean)
+# draw HPDI region for line
+shade(mu.HPDI, NonVerbal.seq )
+# draw PI region for simulated heights
+shade(ADOS.PI, NonVerbal.seq ) 
+
+```
+
+assesing model for verbal
+
+```{r}
+summary(d2$VerbalIQ)
+summary(d2$NonVerbalIQ)
+
+Verbal.seq <- seq(from = -2, to = 2, by = 1)
+sim.Verbal <- sim(verbal, data = list(VerbalIQ = Verbal.seq))
+ADOS.PI <- apply(sim.Verbal, 2, PI, prob = 0.89)
+mu <- link(verbal, data = data.frame(VerbalIQ = Verbal.seq))
+mu.mean <- apply(mu, 2, mean) 
+mu.HPDI <- apply(mu, 2, HPDI, prob = 0.89)
+
+plot(ADOS ~ VerbalIQ, d2, col = col.alpha(rangi2, 1))
+lines(Verbal.seq, mu.mean)
+# draw HPDI region for line
+shade(mu.HPDI, Verbal.seq )
+# draw PI region for simulated heights
+shade(ADOS.PI, Verbal.seq ) 
+```
+
+assessing model for social
+
+```{r}
+summary(d2$SocialIQ)
+
+Social.seq <- seq(from = -2, to = 3, by = 1)
+sim.Social <- sim(social, data = list(SocialIQ = Social.seq))
+ADOS.PI <- apply(sim.Social, 2, PI, prob = 0.89)
+mu <- link(social, data = data.frame(SocialIQ = Social.seq))
+mu.mean <- apply(mu, 2, mean) 
+mu.HPDI <- apply(mu, 2, HPDI, prob = 0.89)
+
+plot(ADOS ~ SocialIQ, d2, col = col.alpha(rangi2, 1))
+lines(Social.seq, mu.mean)
+# draw HPDI region for line
+shade(mu.HPDI, Social.seq )
+# draw PI region for simulated heights
+shade(ADOS.PI, Social.seq ) 
+
+```
+
+
+
