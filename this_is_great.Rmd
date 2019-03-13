@@ -1,9 +1,10 @@
 ---
-title: "bayes_ASD"
+title: "andersfuckoff"
 author: "Victor Møller"
-date: "5 mar 2019"
+date: "13 mar 2019"
 output: html_document
 ---
+
 
 ```{r setup, include=FALSE}
 
@@ -44,7 +45,7 @@ d2$ADOS <- d2$ADOS / sd(d2$ADOS)
 
 #B
 
-BRMS
+BRMS --> DON't RUN THIS CHUNK IT TAKES AGES. 
 ```{r}
 # making a formula, automatic prior detection
 m1 <- bf(ADOS ~ 1 + NonVerbalIQ)
@@ -63,7 +64,7 @@ prior = c(prior(normal(3, 1), class = "Intercept"),
           prior(normal(1,0.5), class = "sigma"))
 
 
-#model with = "only"
+#model with = "only" (commented bc. of run-time)
 m1_only <- brm(m1, family = gaussian, d2, 
                 prior = prior, sample_prior = "only", 
                 chain = 1, iter = 500)  
@@ -237,7 +238,155 @@ shade(ADOS.PI, Social.seq )
 
 ```
 
-task 5 
+TASK 2 (I.e., your bogus code)
+
+```{r}
+
+```{r}
+#Filtering visit 1 & neurotypicals 
+d3 <- d %>%
+  filter(Visit == 1) %>%
+  filter(ASD == 0)
+#Centering (JanCo style, using z-score)
+colname <- c("VerbalIQ", "NonVerbalIQ", "SocialIQ")
+d4 <- d3[complete.cases(d3[6:8]) , ]
+d4 <- d4 %>%
+  mutate_at(vars(colname), z_score)
+d4$ADOS <- d4$ADOS / sd(d4$ADOS)
+
+d2cor <- d2[6:8]
+cor(d2cor)
+
+d4cor <- d4[6:8]
+cor(d4cor)
+
+lm(ADOS ~ SocialIQ, data = d2)
+lm(ADOS ~ NonVerbalIQ, data = d2)
+lm(ADOS ~ VerbalIQ, data = d2)
+
+lm(ADOS ~ SocialIQ, data = d4)
+lm(ADOS ~ NonVerbalIQ, data = d4)
+lm(ADOS ~ VerbalIQ, data = d4)
+```
+
+```{r}
+mNonV <- rethinking::map(
+alist(
+ADOS ~ dnorm(mu, sigma),
+mu <- Intercept + b_NonVIQ*NonVerbalIQ,
+Intercept ~ dnorm(3, 1),
+b_NonVIQ ~ dnorm(-0.5, 0.5),
+sigma ~ dnorm(1, 0.5)
+),
+data = d2)
+
+mV <- rethinking::map(
+alist(
+ADOS ~ dnorm(mu, sigma),
+mu <- Intercept + b_VIQ*VerbalIQ,
+Intercept ~ dnorm(3, 1),
+b_VIQ ~ dnorm(-0.5, 0.5),
+sigma ~ dnorm(1, 0.5)
+),
+data = d2)
+
+MS <- rethinking::map(
+alist(
+ADOS ~ dnorm(mu, sigma),
+mu <- Intercept + b_SIQ*SocialIQ,
+Intercept ~ dnorm(3, 1),
+b_SIQ ~ dnorm(-0.5, 0.5),
+sigma ~ dnorm(1, 0.5)
+),
+data = d2)
+
+m1 <- rethinking::map(
+alist(
+ADOS ~ dnorm(mu, sigma),
+mu <- Intercept + b_NonVIQ*NonVerbalIQ + b_VIQ * VerbalIQ + b_SIQ * SocialIQ,
+Intercept ~ dnorm(3, 1),
+b_NonVIQ ~ dnorm(-0.5, 0.5),
+b_VIQ ~ dnorm(-0.5, 0.5), 
+b_SIQ ~ dnorm(-0.5, 0.5),
+sigma ~ dnorm(1, 0.5)
+),
+data = d2)
+
+m2 <- rethinking::map(
+alist(
+ADOS ~ dnorm(mu, sigma),
+mu <- Intercept + b_NonVIQ*NonVerbalIQ + b_SIQ * SocialIQ,
+Intercept ~ dnorm(3, 1),
+b_NonVIQ ~ dnorm(-0.5, 0.5),
+b_SIQ ~ dnorm(-0.5, 0.5),
+sigma ~ dnorm(1, 0.5)
+),
+data = d2)
+
+precis(mNonV)
+precis(mV)
+precis(MS)
+precis(m1, cor = TRUE)
+precis(m2, cor = TRUE)
+
+model_comp <- compare(m1, m2, n = 10^4)
+model_comp
+model_comp2 <- compare(mNonV, mV, MS, m1, m2, n = 10^4)
+model_comp2
+```
+
+```{r}
+dcomb <- rbind(d2, d4)
+
+mNonVTD <- rethinking::map(
+alist(
+ADOS ~ dnorm(mu, sigma),
+mu <- Intercept + b_NonVIQ*NonVerbalIQ,
+Intercept ~ dnorm(3, 1),
+b_NonVIQ ~ dnorm(-0.5, 0.5),
+sigma ~ dnorm(1, 0.5)
+),
+data = dcomb)
+
+mVTD <- rethinking::map(
+alist(
+ADOS ~ dnorm(mu, sigma),
+mu <- Intercept + b_VIQ*VerbalIQ,
+Intercept ~ dnorm(3, 1),
+b_VIQ ~ dnorm(-0.5, 0.5),
+sigma ~ dnorm(1, 0.5)
+),
+data = dcomb)
+
+MSTD <- rethinking::map(
+alist(
+ADOS ~ dnorm(mu, sigma),
+mu <- Intercept + b_SIQ*SocialIQ,
+Intercept ~ dnorm(3, 1),
+b_SIQ ~ dnorm(-0.5, 0.5),
+sigma ~ dnorm(1, 0.5)
+),
+data = dcomb)
+
+m1TD <- rethinking::map(
+alist(
+ADOS ~ dnorm(mu, sigma),
+mu <- Intercept + b_NonVIQ*NonVerbalIQ + b_VIQ * VerbalIQ + b_SIQ * SocialIQ,
+Intercept ~ dnorm(3, 1),
+b_NonVIQ ~ dnorm(-0.5, 0.5),
+b_VIQ ~ dnorm(-0.5, 0.5), 
+b_SIQ ~ dnorm(-0.5, 0.5),
+sigma ~ dnorm(1, 0.5)
+),
+data = dcomb)
+
+precis(mNonVTD)
+precis(mVTD)
+precis(MSTD)
+precis(m1TD)
+```
+
+TASK 5
 
 ```{r}
 
@@ -257,7 +406,4 @@ social <- rethinking::map(
 
 
 ```
-
-
-
 
