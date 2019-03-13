@@ -26,7 +26,6 @@ d1 <- d %>%
   filter(Visit == 1) %>%
   filter(ASD == 1)
 
-
 #centering (JanCo style)
 colname <- c("VerbalIQ", "NonVerbalIQ", "SocialIQ")
 
@@ -238,36 +237,17 @@ shade(ADOS.PI, Social.seq )
 
 ```
 
-TASK 2 (I.e., your bogus code)
+TASK 2: 
+#A different portions of variance?
 
 ```{r}
+#corr-check 
+d2cor <- d2[6:8] #weird ones 
+cor(d2cor) #social & nonverbal are not that correlated. 
 
-```{r}
-#Filtering visit 1 & neurotypicals 
-d3 <- d %>%
-  filter(Visit == 1) %>%
-  filter(ASD == 0)
-#Centering (JanCo style, using z-score)
-colname <- c("VerbalIQ", "NonVerbalIQ", "SocialIQ")
-d4 <- d3[complete.cases(d3[6:8]) , ]
-d4 <- d4 %>%
-  mutate_at(vars(colname), z_score)
-d4$ADOS <- d4$ADOS / sd(d4$ADOS)
-
-d2cor <- d2[6:8]
-cor(d2cor)
-
-d4cor <- d4[6:8]
-cor(d4cor)
-
-lm(ADOS ~ SocialIQ, data = d2)
-lm(ADOS ~ NonVerbalIQ, data = d2)
-lm(ADOS ~ VerbalIQ, data = d2)
-
-lm(ADOS ~ SocialIQ, data = d4)
-lm(ADOS ~ NonVerbalIQ, data = d4)
-lm(ADOS ~ VerbalIQ, data = d4)
 ```
+
+#B all IQ measures in same model? 
 
 ```{r}
 mNonV <- rethinking::map(
@@ -329,11 +309,151 @@ precis(MS)
 precis(m1, cor = TRUE)
 precis(m2, cor = TRUE)
 
-model_comp <- compare(m1, m2, n = 10^4)
-model_comp
-model_comp2 <- compare(mNonV, mV, MS, m1, m2, n = 10^4)
-model_comp2
+set.seed(1337)
+model_comp <- compare(mNonV, mV, MS, m1, m2, n = 10^4)
+model_comp #best = 
+
 ```
+
+2C # Assessing quality of predictors. 
+First block is for non-verbal.
+
+```{r}
+# mean & spread. 
+summary(d2$SocialIQ)
+summary(d2$NonVerbalIQ) #0
+summary(d2$VerbalIQ) #0
+
+non.seq <- seq(from=-2.5,to=3,length.out=30)
+d.predict <- list(
+ADOS = rep(0,30), # empty outcome 
+NonVerbalIQ = non.seq, # sequence of social IQ
+SocialIQ = rep(0,30), # average of non-verbal
+VerbalIQ = rep(0,30) #average of verbal 
+)
+
+pred.m1 <- link( m1 , data=d.predict )
+mu <- apply( pred.m1 , 2 , mean )
+mu.PI <- apply( pred.m1 , 2 , PI )
+# plot it all
+plot( ADOS ~ NonVerbalIQ , d2 , col=rangi2 )
+lines( non.seq , mu , lty=2 )
+lines( non.seq , mu.PI[1,] , lty=2 )
+lines( non.seq , mu.PI[2,] , lty=2 )
+
+#ensemble
+IQ.ensemble <- ensemble( mNonV, m2, m1, data=d.predict ) #also models without?
+IQ.ensemble <- ensemble(mNonV, mV, MS, m1, m2, data = d.predict)
+mu <- apply( IQ.ensemble$link , 2 , mean )
+mu.PI <- apply( IQ.ensemble$link , 2 , PI )
+lines( non.seq , mu )
+shade( mu.PI , non.seq )
+
+```
+
+2C # Assessing quality of predictors. 
+This block is for verbal 
+
+```{r}
+# mean & spread. 
+summary(d2$SocialIQ)
+summary(d2$NonVerbalIQ) #0
+summary(d2$VerbalIQ) #0
+
+verb.seq <- seq(from=-1.5,to=2,length.out=30)
+d.predict <- list(
+ADOS = rep(0,30), # empty outcome 
+VerbalIQ = verb.seq, # sequence of social IQ
+SocialIQ = rep(0,30), # average of non-verbal
+NonVerbalIQ = rep(0,30) #average of verbal 
+)
+
+pred.m1 <- link( m1 , data=d.predict )
+mu <- apply( pred.m1 , 2 , mean )
+mu.PI <- apply( pred.m1 , 2 , PI )
+# plot it all
+plot( ADOS ~ VerbalIQ , d2 , col=rangi2 )
+lines( verb.seq , mu , lty=2 )
+lines( verb.seq , mu.PI[1,] , lty=2 )
+lines( verb.seq , mu.PI[2,] , lty=2 )
+
+#ensemble
+IQ.ensemble <- ensemble(mNonV, mV, MS, m1, m2, data = d.predict)
+mu <- apply( IQ.ensemble$link , 2 , mean )
+mu.PI <- apply( IQ.ensemble$link , 2 , PI )
+lines( verb.seq , mu )
+shade( mu.PI , verb.seq )
+
+```
+
+2C # Assessing quality of predictors. 
+This block is for social
+
+```{r}
+# mean & spread. 
+summary(d2$SocialIQ)
+summary(d2$NonVerbalIQ) #0
+summary(d2$VerbalIQ) #0
+
+soc.seq <- seq(from=-1.5,to=2.5,length.out=30)
+d.predict <- list(
+ADOS = rep(0,30), # empty outcome 
+SocialIQ = soc.seq, # sequence of social IQ
+VerbalIQ = rep(0,30), # average of non-verbal
+NonVerbalIQ = rep(0,30) #average of verbal 
+)
+
+pred.m1 <- link( m1 , data=d.predict )
+mu <- apply( pred.m1 , 2 , mean )
+mu.PI <- apply( pred.m1 , 2 , PI )
+# plot it all
+plot( ADOS ~ SocialIQ , d2 , col=rangi2 )
+lines( soc.seq , mu , lty=2 )
+lines( soc.seq , mu.PI[1,] , lty=2 )
+lines( soc.seq , mu.PI[2,] , lty=2 )
+
+#ensemble
+IQ.ensemble <- ensemble(mNonV, mV, MS, m1, m2, data = d.predict)
+mu <- apply( IQ.ensemble$link , 2 , mean )
+mu.PI <- apply( IQ.ensemble$link , 2 , PI )
+lines( soc.seq , mu )
+shade( mu.PI , soc.seq )
+```
+
+
+TASK 3: 
+
+```{r}
+
+#Filtering visit 1 & neurotypicals 
+d3 <- d %>%
+  filter(Visit == 1) 
+
+#Centering (JanCo style, using z-score)
+colname <- c("VerbalIQ", "NonVerbalIQ", "SocialIQ")
+d4 <- d3[complete.cases(d3[6:8]) , ]
+d4 <- d4 %>%
+  mutate_at(vars(colname), z_score)
+d4$ADOS <- d4$ADOS / sd(d4$ADOS)
+
+#corr-check 
+d2cor <- d2[6:8] #weird ones 
+cor(d2cor)
+
+d4cor <- d4[6:8] #both. 
+cor(d4cor)
+
+#
+lm(ADOS ~ SocialIQ, data = d2)
+lm(ADOS ~ NonVerbalIQ, data = d2)
+lm(ADOS ~ VerbalIQ, data = d2)
+
+lm(ADOS ~ SocialIQ, data = d4)
+lm(ADOS ~ NonVerbalIQ, data = d4)
+lm(ADOS ~ VerbalIQ, data = d4)
+```
+
+
 
 ```{r}
 dcomb <- rbind(d2, d4)
