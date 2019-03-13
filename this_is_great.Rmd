@@ -420,8 +420,81 @@ lines( soc.seq , mu )
 shade( mu.PI , soc.seq )
 ```
 
+TASK 3 - making another model just for TD.
+Although, I am not sure how this helps us answer the question
 
-TASK 3: 
+```{r}
+#without interaction
+d3 <- d %>%
+  filter(Visit == 1 & ASD == 0)
+colname <- c("VerbalIQ", "NonVerbalIQ", "SocialIQ")
+d4 <- d3[complete.cases(d3[6:8]) , ]
+d4 <- d4 %>%
+  mutate_at(vars(colname), z_score)
+d4$ADOS <- d4$ADOS / sd(d4$ADOS)
+
+#model 1
+mean(d4$ADOS) # find 
+
+m1TD <- rethinking::map(
+alist(
+ADOS ~ dnorm(mu, sigma),
+mu <- Intercept + b_NonVIQ*NonVerbalIQ + b_VIQ * VerbalIQ + b_SIQ * SocialIQ,
+Intercept ~ dnorm(0.5, 0.5),
+b_NonVIQ ~ dnorm(-0.5, 1),
+b_VIQ ~ dnorm(-0.5, 1), 
+b_SIQ ~ dnorm(-0.5, 1),
+sigma ~ dnorm(1, 0.5)
+),
+data = d4)
+
+precis(m1TD)
+
+```
+
+TASK 3:
+visually inspecting whether IQ scores make sense for 
+ASD and TD children respectively. 
+Specifically checking for interaction effect (which is there..)
+
+```{r}
+
+#Is there an interaction 
+d5 <- rbind(d2, d4)
+d5$ASD <- as.factor(d5$ASD)
+
+#checking with plots 
+library(tidyverse)
+p1 <- ggplot(d5, aes(NonVerbalIQ, ADOS, color = ASD)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  labs(title = "ADOS score by non-verbal IQ for ASD and TD")
+
+p2 <- ggplot(d5, aes(VerbalIQ, ADOS, color = ASD)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  labs(title = "ADOS score by verbal IQ for ASD and TD")
+
+p3 <- ggplot(d5, aes(SocialIQ, ADOS, color = ASD)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  labs(title = "ADOS score by social IQ for ASD and TD")
+
+library(cowplot)
+plot_grid(p1, p2, p3)
+
+```
+
+Model with interaction
+https://bookdown.org/ajkurz/Statistical_Rethinking_recoded/interactions.html
+
+```{r}
+
+```
+
+
+
+TASK 3 (old?)
 
 ```{r}
 
