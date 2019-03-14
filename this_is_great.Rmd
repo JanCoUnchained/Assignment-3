@@ -489,6 +489,8 @@ Model with interaction
 https://bookdown.org/ajkurz/Statistical_Rethinking_recoded/interactions.html
 
 ```{r}
+#getting an interaction in alist. 
+glimmer(ADOS ~ 1 + NonVerbalIQ * ASD, d5)
 
 ```
 
