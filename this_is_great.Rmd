@@ -452,6 +452,69 @@ precis(m1TD)
 
 ```
 
+Task 3
+WITH TD AND ASD
+```{r}
+#MAKE DATAFRAME
+d3 <- d %>%
+  filter(Visit == 1)
+colname <- c("VerbalIQ", "NonVerbalIQ", "SocialIQ")
+d4 <- d3[complete.cases(d3[6:8]) , ]
+d4 <- d4 %>%
+  mutate_at(vars(colname), z_score)
+
+d4$ADOS <- d4$ADOS / sd(d4$ADOS)
+mean(d4$ADOS)
+
+
+d4cor <- d4[6:8] 
+cor(d4cor)
+
+#MODELS
+m1ALL <- rethinking::map(
+alist(
+ADOS ~ dnorm(mu, sigma),
+mu <- Intercept + b_NonVIQ*NonVerbalIQ + b_VIQ * VerbalIQ + b_SIQ * SocialIQ,
+Intercept ~ dnorm(1, 1),
+b_NonVIQ ~ dnorm(-0.5, 0.5),
+b_VIQ ~ dnorm(-0.5, 0.5), 
+b_SIQ ~ dnorm(-0.5, 0.5),
+sigma ~ dnorm(1, 0.5)
+),
+data = d4)
+
+precis(m1ALL)
+```
+
+WITHOUT ASD
+```{r}
+#MAKE DATAFRAME
+d5 <- d %>%
+  filter(Visit == 1 & ASD == 0)
+colname <- c("VerbalIQ", "NonVerbalIQ", "SocialIQ")
+d6 <- d5[complete.cases(d5[6:8]) , ]
+d6 <- d6 %>%
+  mutate_at(vars(colname), z_score)
+
+d6$ADOS <- d6$ADOS / sd(d6$ADOS)
+mean(d6$ADOS)
+
+m1TD <- rethinking::map(
+alist(
+ADOS ~ dnorm(mu, sigma),
+mu <- Intercept + b_NonVIQ*NonVerbalIQ + b_VIQ * VerbalIQ + b_SIQ * SocialIQ,
+Intercept ~ dnorm(0.6, 0.5),
+b_NonVIQ ~ dnorm(-0.5, 0.5),
+b_VIQ ~ dnorm(-0.5, 0.5), 
+b_SIQ ~ dnorm(-0.5, 0.5),
+sigma ~ dnorm(1, 0.5)
+),
+data = d6)
+
+precis(m1TD)
+```
+
+
 TASK 3:
 visually inspecting whether IQ scores make sense for 
 ASD and TD children respectively. 
@@ -465,15 +528,16 @@ d5$ASD <- as.factor(d5$ASD)
 
 #checking with plots 
 library(tidyverse)
+library(ggunchained)
 p1 <- ggplot(d5, aes(NonVerbalIQ, ADOS, color = ASD)) +
   geom_point() +
   geom_smooth(method = "lm") +
-  labs(title = "ADOS score by non-verbal IQ for ASD and TD")
+  labs(title = "ADOS score by non-verbal IQ for ASD and TD") 
 
 p2 <- ggplot(d5, aes(VerbalIQ, ADOS, color = ASD)) +
   geom_point() +
   geom_smooth(method = "lm") +
-  labs(title = "ADOS score by verbal IQ for ASD and TD")
+  labs(title = "ADOS score by verbal IQ for ASD and TD") 
 
 p3 <- ggplot(d5, aes(SocialIQ, ADOS, color = ASD)) +
   geom_point() +
@@ -485,138 +549,27 @@ plot_grid(p1, p2, p3)
 
 ```
 
-Model with interaction
-https://bookdown.org/ajkurz/Statistical_Rethinking_recoded/interactions.html
+more variation? 
 
 ```{r}
-#getting an interaction in alist. 
-glimmer(ADOS ~ 1 + NonVerbalIQ * ASD, d5)
+library(ggridges)
 
-#stealing from Knaehoej Karse. 
-interaction <- bf(ADOS ~ 1 + ASD * SocialIQ)
-get_prior(interaction, d5)
+#some ASD very high social IQ? high density towards lower bound for ASD. 
+ggplot(d5, aes(SocialIQ, ASD, fill = ASD)) + 
+  geom_density_ridges() +
+  theme_janco_point() 
 
-#running: notice that I have just copied priors so they suck. 
-prior <- c(prior(normal(0,2.5), class = "Intercept"), prior(normal(-0.4, 0.2), class = "b"), prior(normal(0, 7), class = "sigma"))
+#not as many high-performing ASD as TD. 
+ggplot(d5, aes(VerbalIQ, ASD, fill = ASD)) +
+  geom_density_ridges() +
+  theme_janco_point()
 
-#model priors. 
-model_prior <- brm(interaction, family = gaussian, d5, prior=prior, sample_prior = "only")
-
-#checking. 
-summary(d5$ADOS) #not mean centered (knaehoej's is, so again, priors tweaked)
-pp_check(model_prior, nsamples = 100)
-plot(model_prior)
-
-#this is going to be bullshit because priors are bad, but the code makes sense (maybe)
-model1 <- brm(interaction, family = gaussian, d5, prior=prior, sample_prior = T)
-pp_check(model1)
-summary(model1) #gets an interaction (actually significant?)
-```
-
-
-
-TASK 3 (old?)
-
-```{r}
-
-#Filtering visit 1 & neurotypicals 
-d3 <- d %>%
-  filter(Visit == 1) 
-
-#Centering (JanCo style, using z-score)
-colname <- c("VerbalIQ", "NonVerbalIQ", "SocialIQ")
-d4 <- d3[complete.cases(d3[6:8]) , ]
-d4 <- d4 %>%
-  mutate_at(vars(colname), z_score)
-d4$ADOS <- d4$ADOS / sd(d4$ADOS)
-
-#corr-check 
-d2cor <- d2[6:8] #weird ones 
-cor(d2cor)
-
-d4cor <- d4[6:8] #both. 
-cor(d4cor)
+#crazy tail here --> some very high non-verbal IQ
+ggplot(d5, aes(NonVerbalIQ, ASD, fill = ASD)) +
+  geom_density_ridges() +
+  theme_janco_point()
 
 #
-lm(ADOS ~ SocialIQ, data = d2)
-lm(ADOS ~ NonVerbalIQ, data = d2)
-lm(ADOS ~ VerbalIQ, data = d2)
-
-lm(ADOS ~ SocialIQ, data = d4)
-lm(ADOS ~ NonVerbalIQ, data = d4)
-lm(ADOS ~ VerbalIQ, data = d4)
-```
-
-
-
-```{r}
-dcomb <- rbind(d2, d4)
-
-mNonVTD <- rethinking::map(
-alist(
-ADOS ~ dnorm(mu, sigma),
-mu <- Intercept + b_NonVIQ*NonVerbalIQ,
-Intercept ~ dnorm(3, 1),
-b_NonVIQ ~ dnorm(-0.5, 0.5),
-sigma ~ dnorm(1, 0.5)
-),
-data = dcomb)
-
-mVTD <- rethinking::map(
-alist(
-ADOS ~ dnorm(mu, sigma),
-mu <- Intercept + b_VIQ*VerbalIQ,
-Intercept ~ dnorm(3, 1),
-b_VIQ ~ dnorm(-0.5, 0.5),
-sigma ~ dnorm(1, 0.5)
-),
-data = dcomb)
-
-MSTD <- rethinking::map(
-alist(
-ADOS ~ dnorm(mu, sigma),
-mu <- Intercept + b_SIQ*SocialIQ,
-Intercept ~ dnorm(3, 1),
-b_SIQ ~ dnorm(-0.5, 0.5),
-sigma ~ dnorm(1, 0.5)
-),
-data = dcomb)
-
-m1TD <- rethinking::map(
-alist(
-ADOS ~ dnorm(mu, sigma),
-mu <- Intercept + b_NonVIQ*NonVerbalIQ + b_VIQ * VerbalIQ + b_SIQ * SocialIQ,
-Intercept ~ dnorm(3, 1),
-b_NonVIQ ~ dnorm(-0.5, 0.5),
-b_VIQ ~ dnorm(-0.5, 0.5), 
-b_SIQ ~ dnorm(-0.5, 0.5),
-sigma ~ dnorm(1, 0.5)
-),
-data = dcomb)
-
-precis(mNonVTD)
-precis(mVTD)
-precis(MSTD)
-precis(m1TD)
-```
-
-TASK 5
-
-```{r}
-
-#model 3
-social <- rethinking::map(
-  alist(
-    ADOS ~ dnorm(mu, sigma),
-    mu <- a + b*SocialIQ,
-    a ~ dnorm(3, 1), 
-    b ~ dnorm(-0.5, 0.5),
-    sigma ~ dnorm(1, 0.5),
-    ADOS_error ~ dnorm(ADOS, ADOS_SD),
-    ADOS_SD <- 0.5
-    ),
-  data = d2)
-
 
 
 ```
