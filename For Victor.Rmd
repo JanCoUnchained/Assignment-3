@@ -62,7 +62,7 @@ precis(m1TD)
 
 For task 4
 ```{r}
-d4cor <- d4[6:8]
-cor(d4cor)
+d6cor <- d6[6:8]
+cor(d6cor)
 ```
 
