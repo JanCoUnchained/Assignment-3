@@ -1,27 +1,61 @@
 Task 3
+WITH TD AND ASD
 ```{r}
+#MAKE DATAFRAME
 d3 <- d %>%
-  filter(Visit == 1 & ASD == 0)
+  filter(Visit == 1)
 colname <- c("VerbalIQ", "NonVerbalIQ", "SocialIQ")
 d4 <- d3[complete.cases(d3[6:8]) , ]
 d4 <- d4 %>%
   mutate_at(vars(colname), z_score)
-d4$ADOS <- d4$ADOS / sd(d4$ADOS)
 
-#model 1
-mean(d4$ADOS) # find 
+d4$ADOS <- d4$ADOS / sd(d4$ADOS)
+mean(d4$ADOS)
+
+
+d4cor <- d4[6:8] 
+cor(d4cor)
+
+#MODELS
+m1ALL <- rethinking::map(
+alist(
+ADOS ~ dnorm(mu, sigma),
+mu <- Intercept + b_NonVIQ*NonVerbalIQ + b_VIQ * VerbalIQ + b_SIQ * SocialIQ,
+Intercept ~ dnorm(1, 1),
+b_NonVIQ ~ dnorm(-0.5, 0.5),
+b_VIQ ~ dnorm(-0.5, 0.5), 
+b_SIQ ~ dnorm(-0.5, 0.5),
+sigma ~ dnorm(1, 0.5)
+),
+data = d4)
+
+precis(m1ALL)
+```
+
+WITHOUT ASD
+```{r}
+#MAKE DATAFRAME
+d5 <- d %>%
+  filter(Visit == 1 & ASD == 0)
+colname <- c("VerbalIQ", "NonVerbalIQ", "SocialIQ")
+d6 <- d5[complete.cases(d5[6:8]) , ]
+d6 <- d6 %>%
+  mutate_at(vars(colname), z_score)
+
+d6$ADOS <- d6$ADOS / sd(d6$ADOS)
+mean(d6$ADOS)
 
 m1TD <- rethinking::map(
 alist(
 ADOS ~ dnorm(mu, sigma),
 mu <- Intercept + b_NonVIQ*NonVerbalIQ + b_VIQ * VerbalIQ + b_SIQ * SocialIQ,
-Intercept ~ dnorm(0.5, 0.5),
-b_NonVIQ ~ dnorm(-0.5, 1),
-b_VIQ ~ dnorm(-0.5, 1), 
-b_SIQ ~ dnorm(-0.5, 1),
+Intercept ~ dnorm(0.6, 0.5),
+b_NonVIQ ~ dnorm(-0.5, 0.5),
+b_VIQ ~ dnorm(-0.5, 0.5), 
+b_SIQ ~ dnorm(-0.5, 0.5),
 sigma ~ dnorm(1, 0.5)
 ),
-data = d4)
+data = d6)
 
 precis(m1TD)
 ```
