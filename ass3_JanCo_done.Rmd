@@ -1,0 +1,659 @@
+---
+title: "andersfuckoff"
+author: "Victor Møller"
+date: "13 mar 2019"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+
+library(pacman)
+p_load(rethinking, tidyverse, brms, ggunchained, cowplot)
+
+# data loading
+d <- read.csv("Assignment3Data.csv")
+
+```
+
+
+#A: 
+#preprocessing, scaling
+
+```{r }
+#Filtering visit 1 & neurotypicals 
+d1 <- d %>%
+  filter(Visit == 1) %>%
+  filter(ASD == 1)
+
+#centering (JanCo style)
+colname <- c("VerbalIQ", "NonVerbalIQ", "SocialIQ")
+
+z_score <- function(var) {
+  return( (var - mean(var) ) / sd(var) )
+}
+
+d2 <- d1 %>%
+  mutate_at(vars(colname), z_score)
+
+#standardizing 
+d2$ADOS <- d2$ADOS / sd(d2$ADOS)
+
+```
+
+
+#B
+
+BRMS --> DON't RUN THIS CHUNK IT TAKES AGES. 
+```{r}
+# making a formula, automatic prior detection
+m1 <- bf(ADOS ~ 1 + NonVerbalIQ)
+get_prior(m1, d2, family = gaussian) #outrageusly high it seems?
+
+m2 <- bf(ADOS ~ 1 + VerbalIQ)
+get_prior(m2, d2, family = gaussian) #outrageously high. 
+
+m3 <- bf(ADOS ~ 1 + SocialIQ)
+get_prior(m3, d2, family = gaussian) #outrageously high. 
+
+
+#prior predictive check - Riccardo style 
+prior = c(prior(normal(3, 1), class = "Intercept"), 
+          prior(normal(-0.5, 0.5), class = "b"), 
+          prior(normal(1,0.5), class = "sigma"))
+
+
+#model with = "only" (commented bc. of run-time)
+m1_only <- brm(m1, family = gaussian, d2, 
+                prior = prior, sample_prior = "only", 
+                chain = 1, iter = 500)  
+
+m2_only <- brm(m2, family = gaussian, d2, 
+                prior = prior, sample_prior = "only", 
+                chain = 1, iter = 500)
+
+m3_only <- brm(m3, family = gaussian, d2, 
+                prior = prior, sample_prior = "only", 
+                chain = 1, iter = 500)
+
+#plots prior? 
+plot(m1_only)
+plot(m2_only)
+plot(m3_only)
+
+#model with = TRUE
+m1_true <- brm(m1, family = gaussian, d2, 
+               prior = prior, sample_prior = TRUE, #posterior?
+               chain = 1, iter = 500)
+
+m2_true <- brm(m2, family = gaussian, d2, 
+               prior = prior, sample_prior = TRUE, 
+               chain = 1, iter = 500)
+
+m3_true <- brm(m3, family = gaussian, d2, 
+               prior = prior, sample_prior = TRUE, 
+               chain = 1, iter = 500)
+
+#plots posterior?
+plot(m1_true)
+plot(m2_true)
+plot(m3_true)
+
+#pp_check
+pp_check(m1_only) #looks ok. 
+pp_check(m2_only) #looks ok. 
+pp_check(m3_only) #looks ok. 
+pp_check(m1_true) #looks good. 
+pp_check(m2_true) #somewhat shifted?
+pp_check(m3_true) #looks good. 
+
+```
+
+#C:
+#Doing the 3 models 
+
+```{r}
+#model 1
+nonverbal <- rethinking::map(
+  alist(
+    ADOS ~ dnorm(mu, sigma),
+    mu <- a + b*NonVerbalIQ,
+    a ~ dnorm(3, 1), 
+    b ~ dnorm(-0.5, 0.5),
+    sigma ~ dnorm(1, 0.5)
+    ),
+  data = d2)
+
+#model 2
+verbal <- rethinking::map(
+  alist(
+    ADOS ~ dnorm(mu, sigma),
+    mu <- a + b*VerbalIQ,
+    a ~ dnorm(3, 1), 
+    b ~ dnorm(-0.5, 0.5),
+    sigma ~ dnorm(1, 0.5)
+    ),
+  data = d2)
+
+#model 3
+social <- rethinking::map(
+  alist(
+    ADOS ~ dnorm(mu, sigma),
+    mu <- a + b*SocialIQ,
+    a ~ dnorm(3, 1), 
+    b ~ dnorm(-0.5, 0.5),
+    sigma ~ dnorm(1, 0.5)
+    ),
+  data = d2)
+
+```
+
+
+```{r plot precis of models}
+
+plot(precis(nonverbal))
+plot(precis(verbal))
+plot(precis(social))
+
+```
+
+model quality for nonverbal
+
+```{r}
+
+NonVerbal.seq <- seq(from = -3, to = 3, by = 1)
+sim.NonVerbal <- sim(nonverbal, data = list(NonVerbalIQ = NonVerbal.seq))
+ADOS.PI <- apply(sim.NonVerbal, 2, PI, prob = 0.89)
+mu <- link(nonverbal)
+mu <- link(nonverbal, data = data.frame(NonVerbalIQ = NonVerbal.seq))
+mu.mean <- apply(mu, 2, mean) 
+mu.HPDI <- apply(mu, 2, HPDI, prob = 0.89)
+
+```
+
+```{r plot quality nonverbal}
+plot(ADOS ~ NonVerbalIQ, d2, col = col.alpha(rangi2, 1))
+lines(NonVerbal.seq, mu.mean)
+# draw HPDI region for line
+shade(mu.HPDI, NonVerbal.seq )
+# draw PI region for simulated heights
+shade(ADOS.PI, NonVerbal.seq ) 
+```
+
+assesing model for verbal
+
+```{r}
+
+Verbal.seq <- seq(from = -2, to = 2, by = 1)
+sim.Verbal <- sim(verbal, data = list(VerbalIQ = Verbal.seq))
+ADOS.PI <- apply(sim.Verbal, 2, PI, prob = 0.89)
+mu <- link(verbal, data = data.frame(VerbalIQ = Verbal.seq))
+mu.mean <- apply(mu, 2, mean) 
+mu.HPDI <- apply(mu, 2, HPDI, prob = 0.89)
+
+```
+
+```{r model quality plot verbal}
+plot(ADOS ~ VerbalIQ, d2, col = col.alpha(rangi2, 1))
+lines(Verbal.seq, mu.mean)
+# draw HPDI region for line
+shade(mu.HPDI, Verbal.seq )
+# draw PI region for simulated heights
+shade(ADOS.PI, Verbal.seq ) 
+```
+
+assessing model for social
+
+```{r}
+
+Social.seq <- seq(from = -2, to = 3, by = 1)
+sim.Social <- sim(social, data = list(SocialIQ = Social.seq))
+ADOS.PI <- apply(sim.Social, 2, PI, prob = 0.89)
+mu <- link(social, data = data.frame(SocialIQ = Social.seq))
+mu.mean <- apply(mu, 2, mean) 
+mu.HPDI <- apply(mu, 2, HPDI, prob = 0.89)
+
+```
+
+```{r model quality social}
+
+plot(ADOS ~ SocialIQ, d2, col = col.alpha(rangi2, 1))
+lines(Social.seq, mu.mean)
+# draw HPDI region for line
+shade(mu.HPDI, Social.seq )
+# draw PI region for simulated heights
+shade(ADOS.PI, Social.seq ) 
+```
+
+
+TASK 2: 
+#A different portions of variance?
+
+```{r portions of variance}
+#corr-check 
+d2cor <- d2[6:8] #weird ones 
+cor(d2cor) #social & nonverbal are not that correlated. 
+
+```
+
+#B all IQ measures in same model? 
+
+```{r}
+mNonV <- rethinking::map(
+alist(
+ADOS ~ dnorm(mu, sigma),
+mu <- Intercept + b_NonVIQ*NonVerbalIQ,
+Intercept ~ dnorm(3, 1),
+b_NonVIQ ~ dnorm(-0.5, 0.5),
+sigma ~ dnorm(1, 0.5)
+),
+data = d2)
+
+mV <- rethinking::map(
+alist(
+ADOS ~ dnorm(mu, sigma),
+mu <- Intercept + b_VIQ*VerbalIQ,
+Intercept ~ dnorm(3, 1),
+b_VIQ ~ dnorm(-0.5, 0.5),
+sigma ~ dnorm(1, 0.5)
+),
+data = d2)
+
+MS <- rethinking::map(
+alist(
+ADOS ~ dnorm(mu, sigma),
+mu <- Intercept + b_SIQ*SocialIQ,
+Intercept ~ dnorm(3, 1),
+b_SIQ ~ dnorm(-0.5, 0.5),
+sigma ~ dnorm(1, 0.5)
+),
+data = d2)
+
+m1 <- rethinking::map(
+alist(
+ADOS ~ dnorm(mu, sigma),
+mu <- Intercept + b_NonVIQ*NonVerbalIQ + b_VIQ * VerbalIQ + b_SIQ * SocialIQ,
+Intercept ~ dnorm(3, 1),
+b_NonVIQ ~ dnorm(-0.5, 0.5),
+b_VIQ ~ dnorm(-0.5, 0.5), 
+b_SIQ ~ dnorm(-0.5, 0.5),
+sigma ~ dnorm(1, 0.5)
+),
+data = d2)
+
+m2 <- rethinking::map(
+alist(
+ADOS ~ dnorm(mu, sigma),
+mu <- Intercept + b_NonVIQ*NonVerbalIQ + b_SIQ * SocialIQ,
+Intercept ~ dnorm(3, 1),
+b_NonVIQ ~ dnorm(-0.5, 0.5),
+b_SIQ ~ dnorm(-0.5, 0.5),
+sigma ~ dnorm(1, 0.5)
+),
+data = d2)
+
+```
+
+precis of 5 models - maybe include? 
+
+```{r precis of 5 models}
+precis(mNonV)
+precis(mV)
+precis(MS)
+precis(m1, cor = TRUE)
+precis(m2, cor = TRUE)
+```
+
+NB: takes some time to run next chunk. 
+
+```{r WAIC of 5 models}
+set.seed(1337)
+model_comp <- compare(mNonV, mV, MS, m1, m2, n = 10^4)
+model_comp  
+```
+
+2C # Assessing quality of predictors. 
+First block is for non-verbal.
+
+```{r plot non-verbal}
+
+non.seq <- seq(from=-2.5,to=3,length.out=30)
+d.predict <- list(
+ADOS = rep(0,30), # empty outcome 
+NonVerbalIQ = non.seq, # sequence of social IQ
+SocialIQ = rep(0,30), # average of non-verbal
+VerbalIQ = rep(0,30) #average of verbal 
+)
+
+pred.m1 <- link( m1 , data=d.predict )
+mu <- apply( pred.m1 , 2 , mean )
+mu.PI <- apply( pred.m1 , 2 , PI )
+# plot it all
+plot( ADOS ~ NonVerbalIQ , d2 , col=rangi2 )
+lines( non.seq , mu , lty=2 )
+lines( non.seq , mu.PI[1,] , lty=2 )
+lines( non.seq , mu.PI[2,] , lty=2 )
+
+#ensemble
+IQ.ensemble <- ensemble( mNonV, m2, m1, data=d.predict ) #also models without?
+IQ.ensemble <- ensemble(mNonV, mV, MS, m1, m2, data = d.predict)
+mu <- apply( IQ.ensemble$link , 2 , mean )
+mu.PI <- apply( IQ.ensemble$link , 2 , PI )
+lines( non.seq , mu )
+shade( mu.PI , non.seq )
+
+```
+
+2C # Assessing quality of predictors. 
+This block is for verbal 
+
+```{r plot verbal}
+# mean & spread. 
+summary(d2$SocialIQ)
+summary(d2$NonVerbalIQ) #0
+summary(d2$VerbalIQ) #0
+
+verb.seq <- seq(from=-1.5,to=2,length.out=30)
+d.predict <- list(
+ADOS = rep(0,30), # empty outcome 
+VerbalIQ = verb.seq, # sequence of social IQ
+SocialIQ = rep(0,30), # average of non-verbal
+NonVerbalIQ = rep(0,30) #average of verbal 
+)
+
+pred.m1 <- link( m1 , data=d.predict )
+mu <- apply( pred.m1 , 2 , mean )
+mu.PI <- apply( pred.m1 , 2 , PI )
+# plot it all
+plot( ADOS ~ VerbalIQ , d2 , col=rangi2 )
+lines( verb.seq , mu , lty=2 )
+lines( verb.seq , mu.PI[1,] , lty=2 )
+lines( verb.seq , mu.PI[2,] , lty=2 )
+
+#ensemble
+IQ.ensemble <- ensemble(mNonV, mV, MS, m1, m2, data = d.predict)
+mu <- apply( IQ.ensemble$link , 2 , mean )
+mu.PI <- apply( IQ.ensemble$link , 2 , PI )
+lines( verb.seq , mu )
+shade( mu.PI , verb.seq )
+
+```
+
+2C # Assessing quality of predictors. 
+This block is for social
+
+```{r plot social}
+# mean & spread. 
+summary(d2$SocialIQ)
+summary(d2$NonVerbalIQ) #0
+summary(d2$VerbalIQ) #0
+
+soc.seq <- seq(from=-1.5,to=2.5,length.out=30)
+d.predict <- list(
+ADOS = rep(0,30), # empty outcome 
+SocialIQ = soc.seq, # sequence of social IQ
+VerbalIQ = rep(0,30), # average of non-verbal
+NonVerbalIQ = rep(0,30) #average of verbal 
+)
+
+pred.m1 <- link( m1 , data=d.predict )
+mu <- apply( pred.m1 , 2 , mean )
+mu.PI <- apply( pred.m1 , 2 , PI )
+# plot it all
+plot( ADOS ~ SocialIQ , d2 , col=rangi2 )
+lines( soc.seq , mu , lty=2 )
+lines( soc.seq , mu.PI[1,] , lty=2 )
+lines( soc.seq , mu.PI[2,] , lty=2 )
+
+#ensemble
+IQ.ensemble <- ensemble(mNonV, mV, MS, m1, m2, data = d.predict)
+mu <- apply( IQ.ensemble$link , 2 , mean )
+mu.PI <- apply( IQ.ensemble$link , 2 , PI )
+lines( soc.seq , mu )
+shade( mu.PI , soc.seq )
+```
+
+Task 3
+WITH TD AND ASD
+```{r}
+#MAKE DATAFRAME
+d3 <- d %>%
+  filter(Visit == 1)
+colname <- c("VerbalIQ", "NonVerbalIQ", "SocialIQ")
+d4 <- d3[complete.cases(d3[6:8]) , ]
+d4 <- d4 %>%
+  mutate_at(vars(colname), z_score)
+
+d4$ADOS <- d4$ADOS / sd(d4$ADOS)
+mean(d4$ADOS)
+
+d4cor <- d4[6:8] 
+cor(d4cor)
+
+#MODELS
+m1ALL <- rethinking::map(
+alist(
+ADOS ~ dnorm(mu, sigma),
+mu <- Intercept + b_NonVIQ*NonVerbalIQ + b_VIQ * VerbalIQ + b_SIQ * SocialIQ,
+Intercept ~ dnorm(1, 1),
+b_NonVIQ ~ dnorm(-0.5, 0.5),
+b_VIQ ~ dnorm(-0.5, 0.5), 
+b_SIQ ~ dnorm(-0.5, 0.5),
+sigma ~ dnorm(1, 0.5)
+),
+data = d4)
+
+```
+
+```{r precis M1ALL}
+
+precis(m1ALL)
+```
+
+WITHOUT ASD
+```{r}
+#MAKE DATAFRAME
+d5 <- d %>%
+  filter(Visit == 1 & ASD == 0)
+colname <- c("VerbalIQ", "NonVerbalIQ", "SocialIQ")
+d6 <- d5[complete.cases(d5[6:8]) , ]
+d6 <- d6 %>%
+  mutate_at(vars(colname), z_score)
+
+d6$ADOS <- d6$ADOS / sd(d6$ADOS)
+mean(d6$ADOS)
+
+m1TD <- rethinking::map(
+alist(
+ADOS ~ dnorm(mu, sigma),
+mu <- Intercept + b_NonVIQ*NonVerbalIQ + b_VIQ * VerbalIQ + b_SIQ * SocialIQ,
+Intercept ~ dnorm(0.6, 0.5),
+b_NonVIQ ~ dnorm(-0.5, 0.5),
+b_VIQ ~ dnorm(-0.5, 0.5), 
+b_SIQ ~ dnorm(-0.5, 0.5),
+sigma ~ dnorm(1, 0.5)
+),
+data = d6)
+
+```
+
+```{r precis model for TD}
+precis(m1TD)
+```
+
+
+TASK 3:
+visually inspecting whether IQ scores make sense for 
+ASD and TD children respectively. 
+Specifically checking for interaction effect (which is there..)
+
+```{r}
+
+#Is there an interaction 
+d5 <- rbind(d2, d4)
+d5$ASD <- as.factor(d5$ASD)
+
+#checking with plots 
+library(tidyverse)
+library(ggunchained)
+p1 <- ggplot(d5, aes(NonVerbalIQ, ADOS, color = ASD)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  labs(title = "ADOS score by non-verbal IQ for ASD and TD") 
+
+p2 <- ggplot(d5, aes(VerbalIQ, ADOS, color = ASD)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  labs(title = "ADOS score by verbal IQ for ASD and TD") 
+
+p3 <- ggplot(d5, aes(SocialIQ, ADOS, color = ASD)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  labs(title = "ADOS score by social IQ for ASD and TD")
+
+```
+
+
+```{r cowplot}
+
+plot_grid(p1, p2, p3)
+```
+
+more variation? 
+delete Magnus if there is no need for it. 
+
+```{r}
+library(ggridges)
+
+#some ASD very high social IQ? high density towards lower bound for ASD. 
+p11 <- ggplot(d5, aes(SocialIQ, ASD, fill = ASD)) + 
+  geom_density_ridges() +
+  theme_janco_point() 
+
+#not as many high-performing ASD as TD. 
+p12 <- ggplot(d5, aes(VerbalIQ, ASD, fill = ASD)) +
+  geom_density_ridges() +
+  theme_janco_point()
+
+#crazy tail here --> some very high non-verbal IQ
+p13 <- ggplot(d5, aes(NonVerbalIQ, ASD, fill = ASD)) +
+  geom_density_ridges() +
+  theme_janco_point()
+
+#
+plot_grid(p11, p12, p13)
+
+```
+
+Question 5 
+
+ADOS SE = 1.
+still somewhat messy, but it's understandable. 
+
+```{r no outputs just new model}
+
+#SE of ados?
+d7 <- d1 %>%
+  mutate(ADOS.SE = 1/sd(ADOS))
+
+d8 <- cbind(d2, d7[[10]])
+
+#renaming. 
+d8 <- d8 %>%
+  rename("ADOS_SE" = "d7[[10]]")
+
+dlist <- list( 
+div_obs=d8$ADOS,
+div_sd=d8$ADOS_SE, #how do we convert?
+G=d8$NonVerbalIQ #non-verbal
+)
+
+m14.1 <- rethinking::map2stan(
+alist(
+div_est ~ dnorm(mu,sigma),
+mu <- a + b*G,
+div_obs ~ dnorm(div_est,div_sd),
+a ~ dnorm(3,1), #intercept
+b ~ dnorm(-0.5,0.5),
+sigma ~ dnorm(1,0.5) #sigma
+) , 
+data=dlist , 
+start=list(div_est=dlist$div_obs) , 
+WAIC=FALSE , iter=5000 , warmup=1000 , chains=2 , cores=2 ,
+control=list(adapt_delta=0.95) )
+
+#model 1
+nonverbal <- rethinking::map(
+  alist(
+    ADOS ~ dnorm(mu, sigma),
+    mu <- a + b*NonVerbalIQ,
+    a ~ dnorm(3, 1), 
+    b ~ dnorm(-0.5, 0.5),
+    sigma ~ dnorm(1, 0.5)
+    ),
+  data = d2)
+
+```
+
+preparing to include the measurement error on IQ. 
+
+```{r more messy stuff without }
+
+#column for it 
+d9 <- d1 %>%
+  mutate(nonIQ_SE = 2.12 / sd(NonVerbalIQ))
+
+d8 <- cbind(d8, d9$nonIQ_SE)
+
+d8 <- d8 %>%
+  rename("nonIQ_SE" = "d9$nonIQ_SE")
+
+```
+
+
+```{r uncertainty in both predictor and outcome}
+
+dlist <- list(
+div_obs=d$Divorce,
+div_sd=d$Divorce.SE,
+mar_obs=d$Marriage,
+mar_sd=d$Marriage.SE,
+A=d$MedianAgeMarriage )
+
+dlist <- list( 
+ADOS_obs=d8$ADOS,
+ADOS_sd=d8$ADOS_SE, #how do we convert?
+non_obs=d8$NonVerbalIQ, #non-verbal
+non_sd=d8$nonIQ_SE
+)
+
+#map2stand
+m14.2 <- map2stan(
+alist(
+ADOS_est ~ dnorm(mu,sigma),
+mu <- a + b*non_est[i],
+ADOS_obs ~ dnorm(ADOS_est,ADOS_sd),
+non_obs ~ dnorm(non_est,non_sd),
+a ~ dnorm(3,1), #intercept
+b ~ dnorm(-0.5,0.5),
+sigma ~ dnorm(1,0.5) 
+) ,
+data=dlist ,
+start=list(ADOS_est=dlist$ADOS_obs, non_est=dlist$non_obs) ,
+WAIC=FALSE , iter=5000 , warmup=1000 , chains=3 , cores=3 ,
+control=list(adapt_delta=0.95) )
+
+```
+
+```{r comparing precis all models}
+precis(m14.1) #only modeling measurement error on outcome. 
+precis(m14.2) #biggest sd, but same beta as original 
+precis(nonverbal) #original
+```
+
+```{r precis plot all models}
+plot(precis(m14.1)) 
+plot(precis(m14.2)) 
+plot(precis(nonverbal))
+```
+
