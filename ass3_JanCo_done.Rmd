@@ -9,13 +9,69 @@ output: html_document
 ```{r setup, include=FALSE}
 
 library(pacman)
-p_load(rethinking, tidyverse, brms, ggunchained, cowplot)
+p_load(rethinking, tidyverse, brms, ggunchained, cowplot, dagitty, lavaan)
 
 # data loading
 d <- read.csv("Assignment3Data.csv")
 
 ```
 
+DAG
+
+```{r DAG1}
+
+g <- dagitty('dag {
+    ASD_true [pos="0,2.5"]
+    Q1 [pos="1,2"]
+    Qn [pos="1,3"]
+    VIQ [pos="2,4"]
+    NVIQ [pos="2,3"]
+    SIQ [pos="2,2"]
+    ADOS [pos="2,1"]
+    ASD_diagnosis [pos="3,2.5"]
+
+    ASD_true -> Q1 -> VIQ -> ASD_diagnosis
+    ASD_true -> Q1 -> NVIQ -> ASD_diagnosis
+    ASD_true -> Q1 -> SIQ -> ASD_diagnosis
+    ASD_true -> Q1 -> ADOS -> ASD_diagnosis
+    ASD_true -> Qn -> VIQ -> ASD_diagnosis
+    ASD_true -> Qn -> NVIQ -> ASD_diagnosis
+    ASD_true -> Qn -> SIQ -> ASD_diagnosis
+    ASD_true -> Qn -> ADOS -> ASD_diagnosis
+}')
+
+plot(g)
+
+```
+
+
+```{r DAG2}
+
+g <- dagitty('dag {
+    ASD_true [pos="0,2.5"]
+    Q1 [pos="1,2"]
+    Qn [pos="1,3"]
+    VIQ [pos="2,4"]
+    NVIQ [pos="2,3"]
+    SIQ [pos="2,2"]
+    ADOS [pos="2,1"]
+    ASD_diagnosis [pos="3,2.5"]
+    sampling [pos = "4, 2.5"]
+
+    ASD_true -> Q1 -> VIQ -> ASD_diagnosis
+    ASD_true -> Q1 -> NVIQ -> ASD_diagnosis
+    ASD_true -> Q1 -> SIQ -> ASD_diagnosis
+    ASD_true -> Q1 -> ADOS -> ASD_diagnosis
+    ASD_true -> Qn -> VIQ -> ASD_diagnosis
+    ASD_true -> Qn -> NVIQ -> ASD_diagnosis
+    ASD_true -> Qn -> SIQ -> ASD_diagnosis
+    ASD_true -> Qn -> ADOS -> ASD_diagnosis
+    ASD_diagnosis -> sampling
+}')
+
+plot(g)
+
+```
 
 #A: 
 #preprocessing, scaling
@@ -415,7 +471,7 @@ shade( mu.PI , soc.seq )
 
 Task 3
 WITH TD AND ASD
-```{r}
+```{r non-sequitor, include = F}
 #MAKE DATAFRAME
 d3 <- d %>%
   filter(Visit == 1)
@@ -443,11 +499,6 @@ sigma ~ dnorm(1, 0.5)
 ),
 data = d4)
 
-```
-
-```{r precis M1ALL}
-
-precis(m1ALL)
 ```
 
 WITHOUT ASD
