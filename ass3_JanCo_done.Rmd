@@ -394,9 +394,9 @@ model_comp
 ```
 
 2C # Assessing quality of predictors. 
-First block is for non-verbal.
+Model averaged posterior predictive distribution
 
-```{r plot non-verbal}
+```{r MAPPD non-verbal}
 
 non.seq <- seq(from=-2.5,to=3,length.out=30)
 d.predict <- list(
@@ -427,7 +427,7 @@ shade( mu.PI , non.seq )
 2C # Assessing quality of predictors. 
 This block is for verbal 
 
-```{r plot verbal}
+```{r MAPPD verbal}
 # mean & spread. 
 summary(d2$SocialIQ)
 summary(d2$NonVerbalIQ) #0
@@ -462,7 +462,7 @@ shade( mu.PI , verb.seq )
 2C # Assessing quality of predictors. 
 This block is for social
 
-```{r plot social}
+```{r MAPPD social}
 # mean & spread. 
 summary(d2$SocialIQ)
 summary(d2$NonVerbalIQ) #0
@@ -493,12 +493,26 @@ lines( soc.seq , mu )
 shade( mu.PI , soc.seq )
 ```
 
+Task 3 prep 
+
+WITH TD AND ASD
+```{r non-sequitor, include = F}
+#MAKE DATAFRAME
+d3 <- d %>%
+  filter(Visit == 1)
+colname <- c("VerbalIQ", "NonVerbalIQ", "SocialIQ")
+d4 <- d3[complete.cases(d3[6:8]) , ]
+d4 <- d4 %>%
+  mutate_at(vars(colname), z_score)
+ 
+```
+
 Task 3
 Interaction (only non-verbal as main effect).
 Just kept in there for now as a baseline (how to do it).
-Also, this works for sure. 
+Also, this works for sure.
 
-```{r}
+```{r interaction}
 #weakly regularizing priors & linear interaction. 
 nonv_int <- rethinking::map( 
 alist(
