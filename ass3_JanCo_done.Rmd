@@ -345,6 +345,7 @@ d2 %>%
 
 ```{r multiple predictor models}
 
+set.seed(711)
 three_pred <- rethinking::map(
 alist(
 ADOS ~ dnorm(mu, sigma),
@@ -357,6 +358,7 @@ sigma ~ dnorm(0, 1)
 ),
 data = d2)
 
+set.seed(911)
 two_pred <- rethinking::map(
 alist(
 ADOS ~ dnorm(mu, sigma),
@@ -378,6 +380,7 @@ precis(nonverbal)
 precis(social)
 precis(three_pred, cor = TRUE)
 precis(two_pred, cor = TRUE)
+
 ```
 
 NB: takes some time to run next chunk. 
