@@ -249,6 +249,23 @@ shade(ADOS.PI, Social.seq )
 ```
 
 
+```{r normally distributed residuals}
+res_normal <- function(model, outcome, predictor) {
+  
+  mu <- coef(model)['a'] + 
+    coef(model)['b']*predictor
+  
+  m.resid <- outcome - mu
+  dens(m.resid)
+}
+
+res_normal(nonverbal, d2$ADOS, d2$NonVerbalIQ)
+res_normal(verbal, d2$ADOS, d2$VerbalIQ)
+res_normal(social, d2$ADOS, d2$SocialIQ)
+```
+
+
+
 TASK 2: 
 #A different portions of variance?
 
@@ -256,8 +273,77 @@ TASK 2:
 #corr-check 
 d2cor <- d2[6:8] #weird ones 
 cor(d2cor) #social & nonverbal are not that correlated. 
-
 ```
+
+```{r residuals}
+### models predictor ~ predictor
+r_nv <- rethinking::map(
+  alist(
+    NonVerbalIQ ~ dnorm(mu, sigma),
+    mu <- a + b1*VerbalIQ + b2*SocialIQ,
+    a ~ dnorm(0, 1), 
+    b1 ~ dnorm(0, 1),
+    b2 ~ dnorm(0, 1),
+    sigma ~ dnorm(0, 1)
+    ),
+  data = d2)
+
+r_s <- rethinking::map(
+  alist(
+    SocialIQ ~ dnorm(mu, sigma),
+    mu <- a + b1*VerbalIQ + b2*NonVerbalIQ,
+    a ~ dnorm(0, 1), 
+    b1 ~ dnorm(0, 1),
+    b2 ~ dnorm(0, 1),
+    sigma ~ dnorm(0, 1)
+    ),
+  data = d2)
+
+r_v <- rethinking::map(
+  alist(
+    VerbalIQ ~ dnorm(mu, sigma),
+    mu <- a + b1*NonVerbalIQ + b2*SocialIQ,
+    a ~ dnorm(0, 1), 
+    b1 ~ dnorm(0, 1),
+    b2 ~ dnorm(0, 1),
+    sigma ~ dnorm(0, 1)
+    ),
+  data = d2)
+
+
+# RESIDUALS AGAINST ADOS
+## funciton
+resi <- function(model, outcome, predictor1, predictor2) {
+  
+  mu <- coef(model)['a'] + 
+    coef(model)['b1']*predictor1 + coef(model)['b2']*predictor2
+  
+  m.resid <- outcome - mu
+  return(m.resid)
+}
+
+# unique information in Verbal IQ
+d2 %>%
+  mutate(res = resi(r_v, d2$VerbalIQ, d2$NonVerbalIQ, d2$SocialIQ)) %>%
+  ggplot(aes(res, ADOS)) +
+  geom_point() +
+  geom_smooth(method = "lm")
+
+# unique information in NonVerbal IQ
+d2 %>%
+  mutate(res = resi(r_nv, d2$NonVerbalIQ, d2$VerbalIQ, d2$SocialIQ)) %>%
+  ggplot(aes(res, ADOS)) +
+  geom_point() +
+  geom_smooth(method = "lm")
+
+# unique information in Social IQ
+d2 %>%
+  mutate(res = resi(r_s, d2$SocialIQ, d2$VerbalIQ, d2$NonVerbalIQ)) %>%
+  ggplot(aes(res, ADOS)) +
+  geom_point() +
+  geom_smooth(method = "lm")
+```
+
 
 #B all IQ measures in same model? 
 
