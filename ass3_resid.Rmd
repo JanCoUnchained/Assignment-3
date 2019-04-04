@@ -151,9 +151,9 @@ verbal <- rethinking::map(
   alist(
     ADOS ~ dnorm(mu, sigma),
     mu <- a + b*VerbalIQ,
-    a ~ dnorm(3, 1), 
-    b ~ dnorm(-0.5, 0.5),
-    sigma ~ dnorm(1, 0.5)
+    a ~ dnorm(2.15, 1), 
+    b ~ dnorm(0, 1),
+    sigma ~ dnorm(0, 1)
     ),
   data = d2)
 
@@ -162,9 +162,9 @@ social <- rethinking::map(
   alist(
     ADOS ~ dnorm(mu, sigma),
     mu <- a + b*SocialIQ,
-    a ~ dnorm(3, 1), 
-    b ~ dnorm(-0.5, 0.5),
-    sigma ~ dnorm(1, 0.5)
+    a ~ dnorm(2.15, 1), 
+    b ~ dnorm(0, 1),
+    sigma ~ dnorm(0, 1)
     ),
   data = d2)
 
@@ -255,26 +255,75 @@ TASK 2:
 #corr-check 
 d2cor <- d2[6:8] #weird ones 
 cor(d2cor) #social & nonverbal are not that correlated. 
-
 ```
 
 ```{r residuals}
-# compute expected value at MAP, for each State 5.7
-mu <- coef(nonverbal)['a'] + coef(nonverbal)['b']*d2$ADOS
-# compute residual for each State
-m.resid <- d2$ADOS - mu
+### models predictor ~ predictor
+r_nv <- rethinking::map(
+  alist(
+    NonVerbalIQ ~ dnorm(mu, sigma),
+    mu <- a + b1*VerbalIQ + b2*SocialIQ,
+    a ~ dnorm(0, 1), 
+    b1 ~ dnorm(0, 1),
+    b2 ~ dnorm(0, 1),
+    sigma ~ dnorm(0, 1)
+    ),
+  data = d2)
 
-plot(m.resid)
+r_s <- rethinking::map(
+  alist(
+    SocialIQ ~ dnorm(mu, sigma),
+    mu <- a + b1*VerbalIQ + b2*NonVerbalIQ,
+    a ~ dnorm(0, 1), 
+    b1 ~ dnorm(0, 1),
+    b2 ~ dnorm(0, 1),
+    sigma ~ dnorm(0, 1)
+    ),
+  data = d2)
 
-plot( Marriage.s ~ MedianAgeMarriage.s , d , col=rangi2 )
-abline( m5.4 )
-# loop over States
-for ( i in 1:length(m.resid) ) {
-x <- d$MedianAgeMarriage.s[i] # x location of line segment
-y <- d$Marriage.s[i] # observed endpoint of line segment
-# draw the line segment
-lines( c(x,x) , c(mu[i],y) , lwd=0.5 , col=col.alpha("black",0.7) )
+r_v <- rethinking::map(
+  alist(
+    VerbalIQ ~ dnorm(mu, sigma),
+    mu <- a + b1*NonVerbalIQ + b2*SocialIQ,
+    a ~ dnorm(0, 1), 
+    b1 ~ dnorm(0, 1),
+    b2 ~ dnorm(0, 1),
+    sigma ~ dnorm(0, 1)
+    ),
+  data = d2)
+
+
+# RESIDUALS AGAINST ADOS
+## funciton
+resi <- function(model, outcome, predictor1, predictor2) {
+  
+  mu <- coef(model)['a'] + 
+    coef(model)['b1']*predictor1 + coef(model)['b2']*predictor2
+  
+  m.resid <- outcome - mu
+  return(m.resid)
 }
+
+# unique information in Verbal IQ
+d2 %>%
+  mutate(res = resi(r_v, d2$VerbalIQ, d2$NonVerbalIQ, d2$SocialIQ)) %>%
+  ggplot(aes(res, ADOS)) +
+  geom_point() +
+  geom_smooth(method = "lm")
+
+# unique information in NonVerbal IQ
+d2 %>%
+  mutate(res = resi(r_nv, d2$NonVerbalIQ, d2$VerbalIQ, d2$SocialIQ)) %>%
+  ggplot(aes(res, ADOS)) +
+  geom_point() +
+  geom_smooth(method = "lm")
+
+# unique information in Social IQ
+d2 %>%
+  mutate(res = resi(r_s, d2$SocialIQ, d2$VerbalIQ, d2$NonVerbalIQ)) %>%
+  ggplot(aes(res, ADOS)) +
+  geom_point() +
+  geom_smooth(method = "lm")
 ```
 
 
@@ -282,57 +331,57 @@ lines( c(x,x) , c(mu[i],y) , lwd=0.5 , col=col.alpha("black",0.7) )
 
 ```{r}
 mNonV <- rethinking::map(
-alist(
-ADOS ~ dnorm(mu, sigma),
-mu <- Intercept + b_NonVIQ*NonVerbalIQ,
-Intercept ~ dnorm(3, 1),
-b_NonVIQ ~ dnorm(-0.5, 0.5),
-sigma ~ dnorm(1, 0.5)
-),
-data = d2)
+  alist(
+    ADOS ~ dnorm(mu, sigma),
+    mu <- Intercept + b_NonVIQ*NonVerbalIQ,
+    Intercept ~ dnorm(2.15, 1),
+    b_NonVIQ ~ dnorm(0, 1),
+    sigma ~ dnorm(0, 1)
+  ),
+  data = d2)
 
 mV <- rethinking::map(
-alist(
-ADOS ~ dnorm(mu, sigma),
-mu <- Intercept + b_VIQ*VerbalIQ,
-Intercept ~ dnorm(3, 1),
-b_VIQ ~ dnorm(-0.5, 0.5),
-sigma ~ dnorm(1, 0.5)
-),
-data = d2)
+  alist(
+    ADOS ~ dnorm(mu, sigma),
+    mu <- Intercept + b_VIQ*VerbalIQ,
+    Intercept ~ dnorm(2.15, 1),
+    b_VIQ ~ dnorm(0, 1),
+    sigma ~ dnorm(0, 1)
+  ),
+  data = d2)
 
 MS <- rethinking::map(
-alist(
-ADOS ~ dnorm(mu, sigma),
-mu <- Intercept + b_SIQ*SocialIQ,
-Intercept ~ dnorm(3, 1),
-b_SIQ ~ dnorm(-0.5, 0.5),
-sigma ~ dnorm(1, 0.5)
-),
-data = d2)
+  alist(
+    ADOS ~ dnorm(mu, sigma),
+    mu <- Intercept + b_SIQ*SocialIQ,
+    Intercept ~ dnorm(2.15, 1),
+    b_SIQ ~ dnorm(0, 1),
+    sigma ~ dnorm(0, 1)
+  ),
+  data = d2)
 
 m1 <- rethinking::map(
-alist(
-ADOS ~ dnorm(mu, sigma),
-mu <- Intercept + b_NonVIQ*NonVerbalIQ + b_VIQ * VerbalIQ + b_SIQ * SocialIQ,
-Intercept ~ dnorm(3, 1),
-b_NonVIQ ~ dnorm(-0.5, 0.5),
-b_VIQ ~ dnorm(-0.5, 0.5), 
-b_SIQ ~ dnorm(-0.5, 0.5),
-sigma ~ dnorm(1, 0.5)
-),
-data = d2)
+  alist(
+    ADOS ~ dnorm(mu, sigma),
+    mu <- Intercept + b_NonVIQ*NonVerbalIQ + b_VIQ * VerbalIQ + b_SIQ * SocialIQ,
+    Intercept ~ dnorm(2.15, 1),
+    b_NonVIQ ~ dnorm(0, 1),
+    b_VIQ ~ dnorm(0, 1), 
+    b_SIQ ~ dnorm(0, 1),
+    sigma ~ dnorm(0, 1)
+  ),
+  data = d2)
 
 m2 <- rethinking::map(
-alist(
-ADOS ~ dnorm(mu, sigma),
-mu <- Intercept + b_NonVIQ*NonVerbalIQ + b_SIQ * SocialIQ,
-Intercept ~ dnorm(3, 1),
-b_NonVIQ ~ dnorm(-0.5, 0.5),
-b_SIQ ~ dnorm(-0.5, 0.5),
-sigma ~ dnorm(1, 0.5)
-),
-data = d2)
+  alist(
+    ADOS ~ dnorm(mu, sigma),
+    mu <- Intercept + b_NonVIQ*NonVerbalIQ + b_SIQ * SocialIQ,
+    Intercept ~ dnorm(2.15, 1),
+    b_NonVIQ ~ dnorm(0, 1),
+    b_SIQ ~ dnorm(0, 1),
+    sigma ~ dnorm(0, 1)
+  ),
+  data = d2)
 
 ```
 
