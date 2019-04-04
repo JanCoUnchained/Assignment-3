@@ -545,7 +545,7 @@ mu.TD <- link( nonv_int , data=data.frame(ASD=0,NonVerbalIQ=IQ.seq) )
 mu.TD.mean <- apply( mu.TD , 2 , mean )
 mu.TD.PI <- apply( mu.TD , 2 , PI , prob=0.97 )
 
-# plot African nations with regression 7.11
+# regression by ADOS.
 d.A1 <- d4[d4$ASD==1,]
 plot( ADOS ~ NonVerbalIQ , data=d.A1 ,
 col=rangi2 , ylab="ADOS" ,
@@ -553,7 +553,7 @@ xlab="NonVerbal" )
 mtext( "ASD" , 3 )
 lines( IQ.seq , mu.ASD.mean , col=rangi2 )
 shade( mu.ASD.PI , IQ.seq , col=col.alpha(rangi2,0.3) )
-# plot non-African nations with regression
+# regression by TD. 
 d.A0 <- d4[d4$ASD==0,]
 plot( ADOS ~ NonVerbalIQ , data=d.A0 ,
 col="black" , ylab="ADOS" ,
