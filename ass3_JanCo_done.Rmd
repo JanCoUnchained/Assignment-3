@@ -248,7 +248,6 @@ shade(mu.HPDI, Social.seq )
 shade(ADOS.PI, Social.seq ) 
 ```
 
-
 ```{r normally distributed residuals}
 res_normal <- function(model, outcome, predictor) {
   
@@ -263,8 +262,6 @@ res_normal(nonverbal, d2$ADOS, d2$NonVerbalIQ)
 res_normal(verbal, d2$ADOS, d2$VerbalIQ)
 res_normal(social, d2$ADOS, d2$SocialIQ)
 ```
-
-
 
 TASK 2: 
 #A different portions of variance?
@@ -318,7 +315,7 @@ resi <- function(model, outcome, predictor1, predictor2) {
   mu <- coef(model)['a'] + 
     coef(model)['b1']*predictor1 + coef(model)['b2']*predictor2
   
-  m.resid <- outcome - mu
+  m.resid <- outcome - mu #outcome - what we predicted. 
   return(m.resid)
 }
 
@@ -342,43 +339,15 @@ d2 %>%
   ggplot(aes(res, ADOS)) +
   geom_point() +
   geom_smooth(method = "lm")
+
 ```
 
 
 #B all IQ measures in same model? 
 
 ```{r}
-mNonV <- rethinking::map(
-alist(
-ADOS ~ dnorm(mu, sigma),
-mu <- Intercept + b_NonVIQ*NonVerbalIQ,
-Intercept ~ dnorm(3, 1),
-b_NonVIQ ~ dnorm(-0.5, 0.5),
-sigma ~ dnorm(1, 0.5)
-),
-data = d2)
 
-mV <- rethinking::map(
-alist(
-ADOS ~ dnorm(mu, sigma),
-mu <- Intercept + b_VIQ*VerbalIQ,
-Intercept ~ dnorm(3, 1),
-b_VIQ ~ dnorm(-0.5, 0.5),
-sigma ~ dnorm(1, 0.5)
-),
-data = d2)
-
-MS <- rethinking::map(
-alist(
-ADOS ~ dnorm(mu, sigma),
-mu <- Intercept + b_SIQ*SocialIQ,
-Intercept ~ dnorm(3, 1),
-b_SIQ ~ dnorm(-0.5, 0.5),
-sigma ~ dnorm(1, 0.5)
-),
-data = d2)
-
-m1 <- rethinking::map(
+three_pred <- rethinking::map(
 alist(
 ADOS ~ dnorm(mu, sigma),
 mu <- Intercept + b_NonVIQ*NonVerbalIQ + b_VIQ * VerbalIQ + b_SIQ * SocialIQ,
@@ -390,7 +359,7 @@ sigma ~ dnorm(1, 0.5)
 ),
 data = d2)
 
-m2 <- rethinking::map(
+two_pred <- rethinking::map(
 alist(
 ADOS ~ dnorm(mu, sigma),
 mu <- Intercept + b_NonVIQ*NonVerbalIQ + b_SIQ * SocialIQ,
@@ -406,18 +375,18 @@ data = d2)
 precis of 5 models - maybe include? 
 
 ```{r precis of 5 models}
-precis(mNonV)
-precis(mV)
-precis(MS)
-precis(m1, cor = TRUE)
-precis(m2, cor = TRUE)
+precis(verbal)
+precis(nonverbal)
+precis(social)
+precis(three_pred, cor = TRUE)
+precis(two_pred, cor = TRUE)
 ```
 
 NB: takes some time to run next chunk. 
 
 ```{r WAIC of 5 models}
 set.seed(1337)
-model_comp <- compare(mNonV, mV, MS, m1, m2, n = 10^4)
+model_comp <- compare(verbal, nonverbal, social, three_pred, two_pred, n = 10^4)
 model_comp  
 ```
 
@@ -434,9 +403,9 @@ SocialIQ = rep(0,30), # average of non-verbal
 VerbalIQ = rep(0,30) #average of verbal 
 )
 
-pred.m1 <- link( m1 , data=d.predict )
-mu <- apply( pred.m1 , 2 , mean )
-mu.PI <- apply( pred.m1 , 2 , PI )
+pred.three <- link( three_pred , data=d.predict )
+mu <- apply( pred.three , 2 , mean )
+mu.PI <- apply( pred.three , 2 , PI )
 # plot it all
 plot( ADOS ~ NonVerbalIQ , d2 , col=rangi2 )
 lines( non.seq , mu , lty=2 )
@@ -444,8 +413,7 @@ lines( non.seq , mu.PI[1,] , lty=2 )
 lines( non.seq , mu.PI[2,] , lty=2 )
 
 #ensemble
-IQ.ensemble <- ensemble( mNonV, m2, m1, data=d.predict ) #also models without?
-IQ.ensemble <- ensemble(mNonV, mV, MS, m1, m2, data = d.predict)
+IQ.ensemble <- ensemble(verbal, nonverbal, social, three_pred, two_pred, data = d.predict)
 mu <- apply( IQ.ensemble$link , 2 , mean )
 mu.PI <- apply( IQ.ensemble$link , 2 , PI )
 lines( non.seq , mu )
@@ -470,9 +438,9 @@ SocialIQ = rep(0,30), # average of non-verbal
 NonVerbalIQ = rep(0,30) #average of verbal 
 )
 
-pred.m1 <- link( m1 , data=d.predict )
-mu <- apply( pred.m1 , 2 , mean )
-mu.PI <- apply( pred.m1 , 2 , PI )
+pred.three <- link( three_pred , data=d.predict )
+mu <- apply( pred.three , 2 , mean )
+mu.PI <- apply( pred.three , 2 , PI )
 # plot it all
 plot( ADOS ~ VerbalIQ , d2 , col=rangi2 )
 lines( verb.seq , mu , lty=2 )
@@ -480,7 +448,7 @@ lines( verb.seq , mu.PI[1,] , lty=2 )
 lines( verb.seq , mu.PI[2,] , lty=2 )
 
 #ensemble
-IQ.ensemble <- ensemble(mNonV, mV, MS, m1, m2, data = d.predict)
+IQ.ensemble <- ensemble(verbal, nonverbal, social, three_pred, two_pred, data = d.predict)
 mu <- apply( IQ.ensemble$link , 2 , mean )
 mu.PI <- apply( IQ.ensemble$link , 2 , PI )
 lines( verb.seq , mu )
@@ -505,9 +473,9 @@ VerbalIQ = rep(0,30), # average of non-verbal
 NonVerbalIQ = rep(0,30) #average of verbal 
 )
 
-pred.m1 <- link( m1 , data=d.predict )
-mu <- apply( pred.m1 , 2 , mean )
-mu.PI <- apply( pred.m1 , 2 , PI )
+pred.three <- link( three_pred , data=d.predict )
+mu <- apply( pred.three , 2 , mean )
+mu.PI <- apply( pred.three , 2 , PI )
 # plot it all
 plot( ADOS ~ SocialIQ , d2 , col=rangi2 )
 lines( soc.seq , mu , lty=2 )
@@ -515,7 +483,7 @@ lines( soc.seq , mu.PI[1,] , lty=2 )
 lines( soc.seq , mu.PI[2,] , lty=2 )
 
 #ensemble
-IQ.ensemble <- ensemble(mNonV, mV, MS, m1, m2, data = d.predict)
+IQ.ensemble <- ensemble(verbal, social, nonverbal, three_pred, two_pred, data = d.predict)
 mu <- apply( IQ.ensemble$link , 2 , mean )
 mu.PI <- apply( IQ.ensemble$link , 2 , PI )
 lines( soc.seq , mu )
