@@ -764,13 +764,6 @@ d8 <- d8 %>%
 
 ```{r uncertainty in both predictor and outcome}
 
-dlist <- list(
-div_obs=d$Divorce,
-div_sd=d$Divorce.SE,
-mar_obs=d$Marriage,
-mar_sd=d$Marriage.SE,
-A=d$MedianAgeMarriage )
-
 dlist <- list( 
 ADOS_obs=d8$ADOS,
 ADOS_sd=d8$ADOS_SE, #how do we convert?
@@ -785,9 +778,9 @@ ADOS_est ~ dnorm(mu,sigma),
 mu <- a + b*non_est[i],
 ADOS_obs ~ dnorm(ADOS_est,ADOS_sd),
 non_obs ~ dnorm(non_est,non_sd),
-a ~ dnorm(3,1), #intercept
-b ~ dnorm(-0.5,0.5),
-sigma ~ dnorm(1,0.5) 
+a ~ dnorm(2.15,1), #intercept
+b ~ dnorm(0,1),
+sigma ~ dnorm(0,1) 
 ) ,
 data=dlist ,
 start=list(ADOS_est=dlist$ADOS_obs, non_est=dlist$non_obs) ,
