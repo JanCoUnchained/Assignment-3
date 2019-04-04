@@ -10,6 +10,7 @@ output: html_document
 
 library(pacman)
 p_load(rethinking, tidyverse, brms, ggunchained, cowplot, dagitty, lavaan)
+setwd("C:/Users/victm/Dropbox/CogSci 4/Comp modeling/Eye Tracking/portfolio 1/Portfolio-3-Autism")
 
 # data loading
 d <- read.csv("Assignment3Data.csv")
@@ -114,22 +115,25 @@ prior = c(prior(normal(2.15, 1), class = "Intercept"),
 
 #model with = "only" (commented bc. of run-time)
 m1_only <- brm(m1, family = gaussian, d2, 
-                prior = prior, sample_prior = "only", 
-                chain = 1, iter = 500)  
+                prior = prior, sample_prior = "only")  
 
 #summarizing 
 plot(m1_only)
 pp_check(m1_only)
 
-#prior predictive. 
+#simulating from prior - would be cool with lines. 
+fit <- brm(m1, family = gaussian, d2, 
+                prior = prior, sample_prior = TRUE)
+
+p_samples <- prior_samples(fit)
+dens(p_samples)
+
 ```
 
 #C:
 #Doing the 3 models 
 
 ```{r}
-
-10/sd(d1$ADOS) #2.15
 
 #model 1 - now weakly regularizing. 
 nonverbal <- rethinking::map(
@@ -142,18 +146,14 @@ nonverbal <- rethinking::map(
     ),
   data = d2)
 
-precis(nonverbal)
-
-
-
 #model 2
 verbal <- rethinking::map(
   alist(
     ADOS ~ dnorm(mu, sigma),
     mu <- a + b*VerbalIQ,
-    a ~ dnorm(3, 1), 
-    b ~ dnorm(-0.5, 0.5),
-    sigma ~ dnorm(1, 0.5)
+    a ~ dnorm(2.15, 1), 
+    b ~ dnorm(0, 1),
+    sigma ~ dnorm(0, 1)
     ),
   data = d2)
 
@@ -162,14 +162,15 @@ social <- rethinking::map(
   alist(
     ADOS ~ dnorm(mu, sigma),
     mu <- a + b*SocialIQ,
-    a ~ dnorm(3, 1), 
-    b ~ dnorm(-0.5, 0.5),
-    sigma ~ dnorm(1, 0.5)
+    a ~ dnorm(2.15, 1), 
+    b ~ dnorm(0, 1),
+    sigma ~ dnorm(0, 1)
     ),
   data = d2)
 
 ```
 
+plots.
 
 ```{r plot precis of models}
 
@@ -228,7 +229,7 @@ assessing model for social
 
 ```{r}
 
-Social.seq <- seq(from = -2, to = 3, by = 1)
+Social.seq <- seq(from = -3, to = 3, by = 1)
 sim.Social <- sim(social, data = list(SocialIQ = Social.seq))
 ADOS.PI <- apply(sim.Social, 2, PI, prob = 0.89)
 mu <- link(social, data = data.frame(SocialIQ = Social.seq))
@@ -436,6 +437,126 @@ shade( mu.PI , soc.seq )
 ```
 
 Task 3
+Interaction (only non-verbal as main effect).
+Just kept in there for now as a baseline (how to do it).
+Also, this works for sure. 
+
+```{r}
+#weakly regularizing priors & linear interaction. 
+nonv_int <- rethinking::map( 
+alist(
+ADOS ~ dnorm( mu , sigma ) ,
+mu <- intercept + gamma*NonVerbalIQ + bgroup*ASD ,
+gamma <- bnon + binteraction*ASD ,
+intercept ~ dnorm( 2.15 , 1 ) , #intercept
+bnon ~ dnorm( 0 , 1 ) , #non verbal 
+bgroup ~ dnorm( 0 , 1 ) , #dummy/index
+binteraction ~ dnorm( 0 , 1 ) , #by group
+sigma ~ dunif( 0 , 1 ) #sigma
+) ,
+data=d4 )
+
+precis(nonv_int)
+plot(precis(nonv_int))
+
+#plotting
+IQ.seq <- seq(from=-3,to=3,by=0.25) 
+mu.ASD <- link( m7.5 , data=data.frame(ASD=1,NonVerbalIQ=IQ.seq) )
+mu.ASD.mean <- apply( mu.ASD , 2 , mean )
+mu.ASD.PI <- apply( mu.ASD , 2 , PI , prob=0.97 )
+mu.TD <- link( m7.5 , data=data.frame(ASD=0,NonVerbalIQ=IQ.seq) )
+mu.TD.mean <- apply( mu.TD , 2 , mean )
+mu.TD.PI <- apply( mu.TD , 2 , PI , prob=0.97 )
+
+# plot African nations with regression 7.11
+d.A1 <- d4[d4$ASD==1,]
+plot( ADOS ~ NonVerbalIQ , data=d.A1 ,
+col=rangi2 , ylab="ADOS" ,
+xlab="NonVerbal" )
+mtext( "ASD" , 3 )
+lines( IQ.seq , mu.ASD.mean , col=rangi2 )
+shade( mu.ASD.PI , IQ.seq , col=col.alpha(rangi2,0.3) )
+# plot non-African nations with regression
+d.A0 <- d4[d4$ASD==0,]
+plot( ADOS ~ NonVerbalIQ , data=d.A0 ,
+col="black" , ylab="ADOS" ,
+xlab="NonVerbalIQ" )
+mtext( "TD" , 3 )
+lines( IQ.seq , mu.TD.mean)
+shade( mu.TD.PI , IQ.seq)
+
+#computing stuff
+post <- extract.samples( nonv_int ) 
+gamma.ASD <- post$bnon + post$binteraction*1
+gamma.TD <- post$bnon + post$binteraction*0
+
+mean( gamma.ASD) #effect of NON-verbal on ASD 
+mean( gamma.TD ) #effect of NON-verbal on TD
+
+dens( gamma.ASD , xlim=c(-0.5,0.5) , ylim=c(0,8) , 
+xlab="gamma" , col=rangi2 )
+dens( gamma.TD , add=TRUE )
+
+```
+
+Task 3 Interaction.
+Interaction with all of the variables. 
+
+```{r}
+
+mallinteract <- rethinking::map(
+  alist(
+    ADOS ~ dnorm(mu, sigma),
+    mu <- intercept + gamma1*NonVerbalIQ + bgroup*ASD + 
+          gamma2*VerbalIQ + bgroup*ASD + gamma3*SocialIQ + bgroup*ASD,
+    gamma1 <- bnon + binteraction1*ASD, #nonverbal
+    gamma2 <- bverb + binteraction2*ASD, #verbal
+    gamma3 <- bsoc + binteraction3*ASD, #social
+    intercept ~ dnorm(2.15, 1),
+    bnon ~ dnorm(0, 1),
+    bverb ~ dnorm(0, 1),
+    bsoc ~ dnorm(0,1),
+    bgroup ~ dnorm(0,1),
+    binteraction1 ~ dnorm(0,1),
+    binteraction2 ~ dnorm(0,1),
+    binteraction3 ~ dnorm(0,1),
+    sigma ~ dnorm(0,1)
+  ),
+  data = d4
+)
+
+precis(mallinteract)
+compare(mallinteract, nonv_int) #multiple interaction best. 
+
+plot(precis(mallinteract))
+
+#extracting samples nonverbal
+post <- extract.samples( mallinteract ) 
+gamma.ASD.non <- post$bnon + post$binteraction1*1
+gamma.TD.non <- post$bnon + post$binteraction1*0
+
+mean(gamma.ASD.non) #more negative. 
+mean(gamma.TD.non) #less negative. 
+
+#extracting samples verbal
+gamma.ASD.verb <- post$bverb + post$binteraction2*1
+gamma.TD.verb <- post$bverb + post$binteraction2*0
+
+mean(gamma.ASD.verb)
+mean(gamma.TD.verb)
+
+#extracting samples social
+gamma.ASD.soc <- post$bsoc + post$binteraction3*1
+gamma.TD.soc <- post$bsoc + post$binteraction3*0
+
+mean(gamma.ASD.soc)
+mean(gamma.TD.soc)
+
+
+```
+
+
+
 WITH TD AND ASD
 ```{r non-sequitor, include = F}
 #MAKE DATAFRAME
