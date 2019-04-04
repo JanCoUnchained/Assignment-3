@@ -99,24 +99,17 @@ d2$ADOS <- d2$ADOS / sd(d2$ADOS)
 
 
 #B
+Prior check. 
+Same for all 3 models, so we do it for one. 
 
-BRMS --> DON't RUN THIS CHUNK IT TAKES AGES. 
 ```{r}
 # making a formula, automatic prior detection
 m1 <- bf(ADOS ~ 1 + NonVerbalIQ)
-get_prior(m1, d2, family = gaussian) #outrageusly high it seems?
-
-m2 <- bf(ADOS ~ 1 + VerbalIQ)
-get_prior(m2, d2, family = gaussian) #outrageously high. 
-
-m3 <- bf(ADOS ~ 1 + SocialIQ)
-get_prior(m3, d2, family = gaussian) #outrageously high. 
-
 
 #prior predictive check - Riccardo style 
-prior = c(prior(normal(3, 1), class = "Intercept"), 
-          prior(normal(-0.5, 0.5), class = "b"), 
-          prior(normal(1,0.5), class = "sigma"))
+prior = c(prior(normal(2.15, 1), class = "Intercept"), 
+          prior(normal(0, 1), class = "b"), 
+          prior(normal(0,1), class = "sigma"))
 
 
 #model with = "only" (commented bc. of run-time)
@@ -124,61 +117,34 @@ m1_only <- brm(m1, family = gaussian, d2,
                 prior = prior, sample_prior = "only", 
                 chain = 1, iter = 500)  
 
-m2_only <- brm(m2, family = gaussian, d2, 
-                prior = prior, sample_prior = "only", 
-                chain = 1, iter = 500)
-
-m3_only <- brm(m3, family = gaussian, d2, 
-                prior = prior, sample_prior = "only", 
-                chain = 1, iter = 500)
-
-#plots prior? 
+#summarizing 
 plot(m1_only)
-plot(m2_only)
-plot(m3_only)
+pp_check(m1_only)
 
-#model with = TRUE
-m1_true <- brm(m1, family = gaussian, d2, 
-               prior = prior, sample_prior = TRUE, #posterior?
-               chain = 1, iter = 500)
-
-m2_true <- brm(m2, family = gaussian, d2, 
-               prior = prior, sample_prior = TRUE, 
-               chain = 1, iter = 500)
-
-m3_true <- brm(m3, family = gaussian, d2, 
-               prior = prior, sample_prior = TRUE, 
-               chain = 1, iter = 500)
-
-#plots posterior?
-plot(m1_true)
-plot(m2_true)
-plot(m3_true)
-
-#pp_check
-pp_check(m1_only) #looks ok. 
-pp_check(m2_only) #looks ok. 
-pp_check(m3_only) #looks ok. 
-pp_check(m1_true) #looks good. 
-pp_check(m2_true) #somewhat shifted?
-pp_check(m3_true) #looks good. 
-
+#prior predictive. 
 ```
 
 #C:
 #Doing the 3 models 
 
 ```{r}
-#model 1
+
+10/sd(d1$ADOS) #2.15
+
+#model 1 - now weakly regularizing. 
 nonverbal <- rethinking::map(
   alist(
     ADOS ~ dnorm(mu, sigma),
     mu <- a + b*NonVerbalIQ,
-    a ~ dnorm(3, 1), 
-    b ~ dnorm(-0.5, 0.5),
-    sigma ~ dnorm(1, 0.5)
+    a ~ dnorm(2.15, 1), #based on dnorm(10, 5) priors on natural scale. 
+    b ~ dnorm(0, 1), #95% between -2, 2. 
+    sigma ~ dnorm(0, 1) 
     ),
   data = d2)
+
+precis(nonverbal)
+
+
 
 #model 2
 verbal <- rethinking::map(
