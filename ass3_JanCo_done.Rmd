@@ -552,7 +552,31 @@ gamma.TD.soc <- post$bsoc + post$binteraction3*0
 mean(gamma.ASD.soc)
 mean(gamma.TD.soc)
 
+#is this the same?
+mvariation <- rethinking::map(
+  alist(
+    ADOS ~ dnorm(mu, sigma),
+    mu <- intercept + gamma1*NonVerbalIQ + bgroup1*ASD + 
+          gamma2*VerbalIQ + bgroup2*ASD + gamma3*SocialIQ + bgroup3*ASD,
+    gamma1 <- bnon + binteraction1*ASD, #nonverbal
+    gamma2 <- bverb + binteraction2*ASD, #verbal
+    gamma3 <- bsoc + binteraction3*ASD, #social
+    intercept ~ dnorm(2.15, 1),
+    bnon ~ dnorm(0, 1),
+    bverb ~ dnorm(0, 1),
+    bsoc ~ dnorm(0,1),
+    bgroup1 ~ dnorm(0,1),
+    bgroup2 ~ dnorm(0,1),
+    bgroup3 ~ dnorm(0,1),
+    binteraction1 ~ dnorm(0,1),
+    binteraction2 ~ dnorm(0,1),
+    binteraction3 ~ dnorm(0,1),
+    sigma ~ dnorm(0,1)
+  ),
+  data = d4
+)
 
+precis(mvariation)
 ```
 
 
