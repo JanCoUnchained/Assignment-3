@@ -503,8 +503,8 @@ d3 <- d %>%
 colname <- c("VerbalIQ", "NonVerbalIQ", "SocialIQ")
 d4 <- d3[complete.cases(d3[6:8]) , ]
 d4 <- d4 %>%
-  mutate_at(vars(colname), z_score)
- 
+  mutate_at(vars(colname), z_score) %>%
+  mutate(ADOS = ADOS / sd(ADOS))
 ```
 
 Task 3
@@ -513,6 +513,9 @@ Just kept in there for now as a baseline (how to do it).
 Also, this works for sure.
 
 ```{r interaction}
+
+set.seed(911)
+library(rethinking)
 #weakly regularizing priors & linear interaction. 
 nonv_int <- rethinking::map( 
 alist(
@@ -523,19 +526,22 @@ intercept ~ dnorm( 2.15 , 1 ) , #intercept
 bnon ~ dnorm( 0 , 1 ) , #non verbal 
 bgroup ~ dnorm( 0 , 1 ) , #dummy/index
 binteraction ~ dnorm( 0 , 1 ) , #by group
-sigma ~ dunif( 0 , 1 ) #sigma
+sigma ~ dnorm( 0 , 1 ) #sigma
 ) ,
-data=d4 )
+data=d4,
+method="Nelder-Mead" ,
+control=list(maxit=1e4)
+)
 
 precis(nonv_int)
 plot(precis(nonv_int))
 
 #plotting
 IQ.seq <- seq(from=-3,to=3,by=0.25) 
-mu.ASD <- link( m7.5 , data=data.frame(ASD=1,NonVerbalIQ=IQ.seq) )
+mu.ASD <- link( nonv_int, data=data.frame(ASD=1,NonVerbalIQ=IQ.seq) )
 mu.ASD.mean <- apply( mu.ASD , 2 , mean )
 mu.ASD.PI <- apply( mu.ASD , 2 , PI , prob=0.97 )
-mu.TD <- link( m7.5 , data=data.frame(ASD=0,NonVerbalIQ=IQ.seq) )
+mu.TD <- link( nonv_int , data=data.frame(ASD=0,NonVerbalIQ=IQ.seq) )
 mu.TD.mean <- apply( mu.TD , 2 , mean )
 mu.TD.PI <- apply( mu.TD , 2 , PI , prob=0.97 )
 
@@ -593,7 +599,9 @@ mallinteract <- rethinking::map(
     binteraction3 ~ dnorm(0,1),
     sigma ~ dnorm(0,1)
   ),
-  data = d4
+  data = d4,
+  method="Nelder-Mead" ,
+control=list(maxit=1e4)
 )
 
 precis(mallinteract)
@@ -623,97 +631,7 @@ gamma.TD.soc <- post$bsoc + post$binteraction3*0
 mean(gamma.ASD.soc)
 mean(gamma.TD.soc)
 
-#is this the same?
-mvariation <- rethinking::map(
-  alist(
-    ADOS ~ dnorm(mu, sigma),
-    mu <- intercept + gamma1*NonVerbalIQ + bgroup1*ASD + 
-          gamma2*VerbalIQ + bgroup2*ASD + gamma3*SocialIQ + bgroup3*ASD,
-    gamma1 <- bnon + binteraction1*ASD, #nonverbal
-    gamma2 <- bverb + binteraction2*ASD, #verbal
-    gamma3 <- bsoc + binteraction3*ASD, #social
-    intercept ~ dnorm(2.15, 1),
-    bnon ~ dnorm(0, 1),
-    bverb ~ dnorm(0, 1),
-    bsoc ~ dnorm(0,1),
-    bgroup1 ~ dnorm(0,1),
-    bgroup2 ~ dnorm(0,1),
-    bgroup3 ~ dnorm(0,1),
-    binteraction1 ~ dnorm(0,1),
-    binteraction2 ~ dnorm(0,1),
-    binteraction3 ~ dnorm(0,1),
-    sigma ~ dnorm(0,1)
-  ),
-  data = d4
-)
-
-precis(mvariation)
 ```
-
-
-
-WITH TD AND ASD
-```{r non-sequitor, include = F}
-#MAKE DATAFRAME
-d3 <- d %>%
-  filter(Visit == 1)
-colname <- c("VerbalIQ", "NonVerbalIQ", "SocialIQ")
-d4 <- d3[complete.cases(d3[6:8]) , ]
-d4 <- d4 %>%
-  mutate_at(vars(colname), z_score)
-
-d4$ADOS <- d4$ADOS / sd(d4$ADOS)
-mean(d4$ADOS)
-
-d4cor <- d4[6:8] 
-cor(d4cor)
-
-#MODELS
-m1ALL <- rethinking::map(
-alist(
-ADOS ~ dnorm(mu, sigma),
-mu <- Intercept + b_NonVIQ*NonVerbalIQ + b_VIQ * VerbalIQ + b_SIQ * SocialIQ,
-Intercept ~ dnorm(1, 1),
-b_NonVIQ ~ dnorm(-0.5, 0.5),
-b_VIQ ~ dnorm(-0.5, 0.5), 
-b_SIQ ~ dnorm(-0.5, 0.5),
-sigma ~ dnorm(1, 0.5)
-),
-data = d4)
-
-```
-
-WITHOUT ASD
-```{r}
-#MAKE DATAFRAME
-d5 <- d %>%
-  filter(Visit == 1 & ASD == 0)
-colname <- c("VerbalIQ", "NonVerbalIQ", "SocialIQ")
-d6 <- d5[complete.cases(d5[6:8]) , ]
-d6 <- d6 %>%
-  mutate_at(vars(colname), z_score)
-
-d6$ADOS <- d6$ADOS / sd(d6$ADOS)
-mean(d6$ADOS)
-
-m1TD <- rethinking::map(
-alist(
-ADOS ~ dnorm(mu, sigma),
-mu <- Intercept + b_NonVIQ*NonVerbalIQ + b_VIQ * VerbalIQ + b_SIQ * SocialIQ,
-Intercept ~ dnorm(0.6, 0.5),
-b_NonVIQ ~ dnorm(-0.5, 0.5),
-b_VIQ ~ dnorm(-0.5, 0.5), 
-b_SIQ ~ dnorm(-0.5, 0.5),
-sigma ~ dnorm(1, 0.5)
-),
-data = d6)
-
-```
-
-```{r precis model for TD}
-precis(m1TD)
-```
-
 
 TASK 3:
 visually inspecting whether IQ scores make sense for 
