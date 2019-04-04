@@ -343,19 +343,17 @@ d2 %>%
 ```
 
 
-#B all IQ measures in same model? 
-
-```{r}
+```{r multiple predictor models}
 
 three_pred <- rethinking::map(
 alist(
 ADOS ~ dnorm(mu, sigma),
 mu <- Intercept + b_NonVIQ*NonVerbalIQ + b_VIQ * VerbalIQ + b_SIQ * SocialIQ,
-Intercept ~ dnorm(3, 1),
-b_NonVIQ ~ dnorm(-0.5, 0.5),
-b_VIQ ~ dnorm(-0.5, 0.5), 
-b_SIQ ~ dnorm(-0.5, 0.5),
-sigma ~ dnorm(1, 0.5)
+Intercept ~ dnorm(2.15, 1),
+b_NonVIQ ~ dnorm(0, 1),
+b_VIQ ~ dnorm(0, 1), 
+b_SIQ ~ dnorm(0, 1),
+sigma ~ dnorm(0, 1)
 ),
 data = d2)
 
@@ -363,18 +361,18 @@ two_pred <- rethinking::map(
 alist(
 ADOS ~ dnorm(mu, sigma),
 mu <- Intercept + b_NonVIQ*NonVerbalIQ + b_SIQ * SocialIQ,
-Intercept ~ dnorm(3, 1),
-b_NonVIQ ~ dnorm(-0.5, 0.5),
-b_SIQ ~ dnorm(-0.5, 0.5),
-sigma ~ dnorm(1, 0.5)
+Intercept ~ dnorm(2.15, 1),
+b_NonVIQ ~ dnorm(0, 1),
+b_SIQ ~ dnorm(0, 1),
+sigma ~ dnorm(0, 1)
 ),
 data = d2)
 
 ```
 
-precis of 5 models - maybe include? 
 
 ```{r precis of 5 models}
+
 precis(verbal)
 precis(nonverbal)
 precis(social)
@@ -385,9 +383,11 @@ precis(two_pred, cor = TRUE)
 NB: takes some time to run next chunk. 
 
 ```{r WAIC of 5 models}
+
 set.seed(1337)
 model_comp <- compare(verbal, nonverbal, social, three_pred, two_pred, n = 10^4)
 model_comp  
+
 ```
 
 2C # Assessing quality of predictors. 
